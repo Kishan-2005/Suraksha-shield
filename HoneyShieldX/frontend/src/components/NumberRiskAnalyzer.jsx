@@ -86,29 +86,32 @@ export default function NumberRiskAnalyzer({ demoMode, language }) {
 
   const l = t[language || 'en'];
 
-  const analyzeNumber = (e) => {
+  const analyzeNumber = async (e) => {
     e.preventDefault();
     if (!phoneNumber) return;
     setAnalyzing(true);
     setResults(null);
 
-    setTimeout(() => {
-      setAnalyzing(false);
-      const cleanNum = phoneNumber.replace(/\s+/g, '');
+    try {
+      const res = await fetch('http://127.0.0.1:8000/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone_number: phoneNumber, language: language || 'en' })
+      });
+      const data = await res.json();
       
-      if (cleanNum.includes('9876543210')) {
-        setResults({ risk_score: 12, risk_level: "Safe", classification: "Legitimate", number_reputation: "No Known Issues", country: "India (+91)", carrier: "Airtel", number_type: "Mobile", ai_explanation: "This number has a clean reputation history. No spam reports or fraudulent patterns detected." });
-      } else if (cleanNum.includes('9123456789')) {
-        setResults({ risk_score: 55, risk_level: "Suspicious", classification: "Spam", number_reputation: "Reported Spam", country: "India (+91)", carrier: "Reliance Jio", number_type: "Mobile", ai_explanation: "This number has been flagged by 142 users for telemarketing spam over the last 30 days." });
-      } else if (cleanNum.includes('9999999999')) {
-        setResults({ risk_score: 94, risk_level: "High", classification: "Scam", number_reputation: "Known Scam Number ⚠️", country: "Unknown / Spoofed", carrier: "Virtual / VoIP", number_type: "VoIP", ai_explanation: "Critical risk: This number uses VoIP masking and matches known fraud patterns." });
-      } else {
-        const hash = cleanNum.length > 0 ? cleanNum.charCodeAt(cleanNum.length - 1) : 0;
-        if (hash % 3 === 0) setResults({ risk_score: 82, risk_level: "High", classification: "Fraud", number_reputation: "Reported Fraud", country: "Nigeria (+234)", carrier: "Unknown", number_type: "VoIP", ai_explanation: "High probability of scam. Number exhibits high-velocity outbound calling patterns." });
-        else if (hash % 2 === 0) setResults({ risk_score: 42, risk_level: "Suspicious", classification: "Spam", number_reputation: "Reported Spam", country: "US (+1)", carrier: "Twilio", number_type: "VoIP", ai_explanation: "Registered to a VoIP provider and frequently associated with robocalls." });
-        else setResults({ risk_score: 18, risk_level: "Safe", classification: "Legitimate", number_reputation: "Clean", country: "UK (+44)", carrier: "Vodafone", number_type: "Mobile", ai_explanation: "Standard mobile number with consistent usage patterns and zero fraud reports." });
-      }
-    }, 2500);
+      // Artificial delay for UX
+      setTimeout(() => {
+        setAnalyzing(false);
+        setResults(data);
+      }, 1500);
+    } catch (err) {
+      console.error(err);
+      setTimeout(() => {
+        setAnalyzing(false);
+        setResults({ risk_score: 50, risk_level: "Unknown", classification: "Error", number_reputation: "API Unreachable", country: "Unknown", carrier: "Unknown", number_type: "Unknown", ai_explanation: "Backend API is currently offline. Start the FastAPI server." });
+      }, 1000);
+    }
   };
 
   const getRiskColor = (score) => score >= 70 ? 'red' : score >= 30 ? 'amber' : 'emerald';
