@@ -105,33 +105,39 @@ export default function IdentityRiskAnalyzer({ demoMode, language }) {
     setImages(prev => prev.filter((_, i) => i !== idx));
   };
 
-  const runAnalysis = () => {
+  const runAnalysis = async () => {
     setAnalyzing(true);
     setResults(null);
-    
-    setTimeout(() => {
-      setAnalyzing(false);
-      const fakeScore = Math.random();
-      if (fakeScore > 0.5) {
-        setResults({
-          isSafe: false,
-          aiProb: Math.floor(Math.random() * 25) + 75,
-          consistency: images.length > 1 ? "Low Consistency" : "Unverified",
-          reverseMatch: "Match Found ⚠️",
-          visualSuspicion: ["Unnatural lighting artifacts", "Facial symmetry anomalies"],
-          riskScore: Math.floor(Math.random() * 20) + 80
-        });
-      } else {
-        setResults({
-          isSafe: true,
-          aiProb: Math.floor(Math.random() * 10) + 2,
-          consistency: images.length > 1 ? "High Consistency" : "Verified",
-          reverseMatch: "No Matches",
-          visualSuspicion: ["None detected"],
-          riskScore: Math.floor(Math.random() * 15) + 5
-        });
-      }
-    }, 3000);
+
+    try {
+      const res = await fetch("http://localhost:3000/analyze-profile", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          images_count: images.length
+        }),
+      });
+
+      const data = await res.json();
+
+      // Convert backend response → frontend format
+      setResults({
+        isSafe: data.risk_level === "Low Risk",
+        aiProb: data.ai_probability,
+        consistency: data.consistency,
+        reverseMatch: data.reverse_match,
+        visualSuspicion: data.visual_suspicion,
+        riskScore: data.risk_score
+      });
+
+    } catch (error) {
+      console.error("API Error:", error);
+      alert("Backend not connected!");
+    }
+
+    setAnalyzing(false);
   };
 
   return (

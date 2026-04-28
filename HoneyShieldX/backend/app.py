@@ -159,7 +159,7 @@ EVIDENCE / CHAT LOGS
             
     report_content += "\n=============================================\nEND OF REPORT\n"
             
-    file_path = "HoneyShieldX_Report.txt"
+    file_path = os.path.join(os.path.dirname(__file__), "HoneyShieldX_Report.txt")
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(report_content)
         
