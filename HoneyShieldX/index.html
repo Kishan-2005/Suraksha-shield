@@ -126,6 +126,26 @@
             }
         }
 
+        @keyframes scan {
+            0% {
+                top: 0;
+                opacity: 0;
+            }
+
+            10% {
+                opacity: 1;
+            }
+
+            90% {
+                opacity: 1;
+            }
+
+            100% {
+                top: 100%;
+                opacity: 0;
+            }
+        }
+
         ::-webkit-scrollbar {
             width: 8px;
         }
@@ -325,8 +345,8 @@
                     <div className="absolute flex flex-col items-center justify-center text-center">
                         <span className="text-4xl sm:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-b from-white to-gray-400">{score}</span>
                         <span className={`text-xs sm:text-sm font-semibold mt-2 px-3 py-1 rounded-full shadow-lg ${score > 75 ? 'bg-danger/20 text-danger shadow-danger/20' :
-                                score > 40 ? 'bg-warning/20 text-warning shadow-warning/20' :
-                                    'bg-success/20 text-success shadow-success/20'
+                            score > 40 ? 'bg-warning/20 text-warning shadow-warning/20' :
+                                'bg-success/20 text-success shadow-success/20'
                             }`}>{statusText}</span>
                     </div>
                 </div>
@@ -386,6 +406,53 @@
         );
 
         const ChatAnalysis = ({ t }) => {
+            const [messages, setMessages] = useState([
+                { id: 1, sender: 'receiver', text: "Hey there! I really feel a strong connection with you. I know we haven't met but I love you so much.", time: "10:42 AM", highlight: "love you", highlightClass: "text-danger font-bold bg-danger/20" },
+                { id: 2, sender: 'user', text: "That's nice, but we just started talking 2 days ago.", time: "10:45 AM" },
+                { id: 3, sender: 'receiver', text: "I know, but please listen. I'm in an emergency. My mother is in the hospital and I need to pay $500 right now. Can you send me money? Please, I'm scared.", time: "10:46 AM", highlight: "pay $500", highlightClass: "text-danger font-bold bg-danger/20" }
+            ]);
+            const [inputValue, setInputValue] = useState('');
+            const [scamProb, setScamProb] = useState(95);
+
+            const handleSendMessage = () => {
+                if (!inputValue.trim()) return;
+
+                const newMsg = {
+                    id: Date.now(),
+                    sender: 'user',
+                    text: inputValue,
+                    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                };
+
+                setMessages([...messages, newMsg]);
+                setInputValue('');
+
+                // Simulate AI response/analysis update
+                setTimeout(() => {
+                    const aiReply = {
+                        id: Date.now() + 1,
+                        sender: 'receiver',
+                        text: "Please, just send the money quickly! Use crypto if you can.",
+                        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                        highlight: "crypto",
+                        highlightClass: "text-danger font-bold bg-danger/20"
+                    };
+                    setMessages(prev => [...prev, aiReply]);
+                    setScamProb(99);
+                }, 1500);
+            };
+
+            const renderTextWithHighlights = (msg) => {
+                if (!msg.highlight) return msg.text;
+                const parts = msg.text.split(msg.highlight);
+                if (parts.length < 2) return msg.text;
+                return (
+                    <>
+                        {parts[0]}<span className={`px-1 rounded mx-1 ${msg.highlightClass}`}>{msg.highlight}</span>{parts[1]}
+                    </>
+                );
+            };
+
             return (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in">
                     <div className="lg:col-span-2 glass rounded-2xl overflow-hidden flex flex-col h-[500px] sm:h-[600px] shadow-2xl">
@@ -404,22 +471,23 @@
                             {/* Subtle background pattern */}
                             <div className="absolute inset-0 opacity-5 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#ffffff 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
 
-                            <div className="chat-bubble chat-receiver relative z-10">
-                                Hey there! I really feel a strong connection with you. I know we haven't met but I <span className="text-danger font-bold bg-danger/20 px-1 rounded mx-1">love you</span> so much.
-                                <div className="text-[10px] text-gray-400 text-right mt-1">10:42 AM</div>
-                            </div>
-                            <div className="chat-bubble chat-sender relative z-10">
-                                That's nice, but we just started talking 2 days ago.
-                                <div className="text-[10px] text-gray-300 text-right mt-1">10:45 AM ✓✓</div>
-                            </div>
-                            <div className="chat-bubble chat-receiver relative z-10 border border-danger/30 shadow-[0_0_15px_rgba(239,68,68,0.15)]">
-                                I know, but please listen. I'm in an <span className="text-warning font-bold bg-warning/20 px-1 rounded mx-1">emergency</span>. My mother is in the hospital and I need to <span className="text-danger font-bold bg-danger/20 px-1 rounded mx-1">pay $500</span> right now. Can you <span className="text-danger font-bold bg-danger/20 px-1 rounded mx-1">send me money</span>? Please, I'm <span className="text-warning font-bold bg-warning/20 px-1 rounded mx-1">scared</span>.
-                                <div className="text-[10px] text-gray-400 text-right mt-1">10:46 AM</div>
-                            </div>
+                            {messages.map((msg) => (
+                                <div key={msg.id} className={`chat-bubble relative z-10 ${msg.sender === 'user' ? 'chat-sender' : 'chat-receiver'} ${msg.highlight ? 'border border-danger/30 shadow-[0_0_15px_rgba(239,68,68,0.15)]' : ''}`}>
+                                    {renderTextWithHighlights(msg)}
+                                    <div className={`text-[10px] text-right mt-1 ${msg.sender === 'user' ? 'text-gray-300' : 'text-gray-400'}`}>{msg.time} {msg.sender === 'user' && '✓✓'}</div>
+                                </div>
+                            ))}
                         </div>
                         <div className="p-4 bg-panel border-t border-gray-800 flex gap-2 relative z-10">
-                            <input type="text" placeholder="Type a message..." className="flex-1 bg-gray-900 border border-gray-700 rounded-full px-4 py-2 focus:outline-none focus:border-primary text-sm text-gray-300" disabled />
-                            <button className="bg-primary hover:bg-blue-600 rounded-full w-10 h-10 flex items-center justify-center transition-colors shadow-lg shadow-primary/20">
+                            <input
+                                type="text"
+                                value={inputValue}
+                                onChange={(e) => setInputValue(e.target.value)}
+                                onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                                placeholder="Type a message..."
+                                className="flex-1 bg-gray-900 border border-gray-700 rounded-full px-4 py-2 focus:outline-none focus:border-primary text-sm text-gray-300"
+                            />
+                            <button onClick={handleSendMessage} className="bg-primary hover:bg-blue-600 rounded-full w-10 h-10 flex items-center justify-center transition-colors shadow-lg shadow-primary/20">
                                 <svg className="w-5 h-5 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
                             </button>
                         </div>
@@ -433,7 +501,7 @@
                             </h3>
                             <div className="space-y-2">
                                 <AnalysisRow label={t.emoDetected} value={t.fear} color="text-warning font-medium bg-warning/10 px-2 py-0.5 rounded" />
-                                <AnalysisRow label={t.scamProb} value="95%" color="text-danger font-bold text-lg" />
+                                <AnalysisRow label={t.scamProb} value={`${scamProb}%`} color="text-danger font-bold text-lg" />
                                 <AnalysisRow label={t.edi} value="High" color="text-danger font-medium" />
                                 <AnalysisRow label={t.groomingPattern} value="Stage 4 (Extraction)" color="text-danger font-medium" />
                                 <AnalysisRow label={t.scamType} value={t.romanceScam} color="text-warning font-medium bg-warning/10 px-2 py-0.5 rounded" />
@@ -455,6 +523,23 @@
         }
 
         const CallDetection = ({ t }) => {
+            const [callStatus, setCallStatus] = useState('ringing');
+
+            if (callStatus !== 'ringing') {
+                return (
+                    <div className="flex flex-col items-center justify-center py-20 animate-fade-in h-[600px]">
+                        <div className="glass p-8 rounded-2xl text-center max-w-md">
+                            <IconShield className="w-16 h-16 text-success mx-auto mb-4" />
+                            <h2 className="text-2xl font-bold mb-2">Call Blocked Successfully</h2>
+                            <p className="text-gray-400 mb-6">The suspicious number has been {callStatus === 'reported' ? 'reported to the central database and ' : ''}blocked on your device.</p>
+                            <button onClick={() => setCallStatus('ringing')} className="bg-primary hover:bg-blue-600 text-white px-6 py-2 rounded-lg transition-colors">
+                                Simulate Another Call
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+
             return (
                 <div className="flex flex-col items-center justify-center py-4 sm:py-10 animate-fade-in">
                     <div className="w-[300px] sm:w-[350px] h-[600px] sm:h-[700px] bg-black rounded-[3rem] border-[8px] border-gray-800 shadow-2xl relative overflow-hidden flex flex-col scale-95 sm:scale-100">
@@ -482,13 +567,13 @@
                             </div>
 
                             <div className="grid grid-cols-2 gap-8 w-full mt-auto mb-16">
-                                <button className="flex flex-col items-center gap-3 group">
+                                <button onClick={() => setCallStatus('rejected')} className="flex flex-col items-center gap-3 group">
                                     <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-danger hover:bg-red-600 flex items-center justify-center transition-all group-hover:scale-110 shadow-[0_0_15px_rgba(239,68,68,0.5)]">
                                         <IconPhoneOff className="text-white w-6 h-6 sm:w-8 sm:h-8" />
                                     </div>
                                     <span className="text-xs text-gray-300 font-medium">{t.reject}</span>
                                 </button>
-                                <button className="flex flex-col items-center gap-3 group">
+                                <button onClick={() => setCallStatus('reported')} className="flex flex-col items-center gap-3 group">
                                     <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-warning hover:bg-orange-500 flex items-center justify-center transition-all group-hover:scale-110 shadow-[0_0_15px_rgba(245,158,11,0.5)]">
                                         <IconShield className="text-white w-6 h-6 sm:w-8 sm:h-8" />
                                     </div>
@@ -502,64 +587,100 @@
         }
 
         const ProfileAnalyzer = ({ t }) => {
+            const [isScanning, setIsScanning] = useState(false);
+            const [scanComplete, setScanComplete] = useState(true);
+
+            const handleScan = () => {
+                setIsScanning(true);
+                setScanComplete(false);
+                setTimeout(() => {
+                    setIsScanning(false);
+                    setScanComplete(true);
+                }, 3000);
+            };
+
             return (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 animate-fade-in">
                     <div className="glass p-6 rounded-2xl flex flex-col items-center relative overflow-hidden shadow-2xl">
                         <div className="absolute top-0 right-0 w-40 h-40 bg-primary opacity-5 rounded-bl-full"></div>
                         <div className="w-48 h-48 sm:w-64 sm:h-64 rounded-2xl overflow-hidden mb-6 relative group border-4 border-gray-800 shadow-xl">
                             <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80" alt="Profile" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-                            <div className="absolute inset-0 bg-primary/20 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPjxyZWN0IHdpZHRoPSI0IiBoZWlnaHQ9IjQiIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIi8+PC9zdmc+')] opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center backdrop-blur-[2px]">
-                                <div className="bg-black/90 px-4 py-2 rounded text-xs text-primary font-mono border border-primary/50 shadow-[0_0_15px_rgba(59,130,246,0.5)] animate-pulse">SCANNING BIOMETRICS...</div>
-                            </div>
+
+                            {(isScanning || !scanComplete) && (
+                                <div className="absolute inset-0 bg-primary/20 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPjxyZWN0IHdpZHRoPSI0IiBoZWlnaHQ9IjQiIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIi8+PC9zdmc+')] flex items-center justify-center backdrop-blur-[2px] transition-opacity duration-300">
+                                    <div className="bg-black/90 px-4 py-2 rounded text-xs text-primary font-mono border border-primary/50 shadow-[0_0_15px_rgba(59,130,246,0.5)] animate-pulse">
+                                        {isScanning ? 'SCANNING BIOMETRICS...' : 'SCAN PENDING'}
+                                    </div>
+                                    {isScanning && (
+                                        <div className="absolute top-0 left-0 w-full h-1 bg-primary shadow-[0_0_15px_rgba(59,130,246,1)] animate-[scan_2s_ease-in-out_infinite]"></div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                         <h3 className="text-xl sm:text-2xl font-bold mb-3 tracking-wide">Sarah_Love99</h3>
-                        <div className="flex gap-2 mb-8">
+                        <div className="flex gap-2 mb-6">
                             <span className="px-3 py-1 bg-gray-800/80 text-xs rounded-full text-gray-300 border border-gray-700">Age: 26</span>
                             <span className="px-3 py-1 bg-gray-800/80 text-xs rounded-full text-gray-300 border border-gray-700">Location: Unknown</span>
                         </div>
 
-                        <div className="w-full space-y-3 bg-gray-900/50 p-4 rounded-xl border border-gray-800">
-                            <div className="flex justify-between text-sm">
-                                <span className="font-medium text-gray-300">{t.authScore}</span>
-                                <span className="text-danger font-bold">20% (Likely Fake)</span>
-                            </div>
-                            <div className="w-full bg-gray-800 rounded-full h-2.5 overflow-hidden">
-                                <div className="bg-danger h-full rounded-full relative" style={{ width: '20%' }}>
-                                    <div className="absolute inset-0 bg-white/20 w-full animate-[pulse_2s_ease-in-out_infinite]"></div>
+                        <button onClick={handleScan} disabled={isScanning} className="w-full mb-6 bg-gray-800 hover:bg-gray-700 disabled:opacity-50 text-white py-2 rounded-lg border border-gray-700 transition-colors shadow-lg">
+                            {isScanning ? 'Analyzing Profile...' : 'Scan New Profile'}
+                        </button>
+
+                        {scanComplete && (
+                            <div className="w-full space-y-3 bg-gray-900/50 p-4 rounded-xl border border-gray-800 animate-fade-in">
+                                <div className="flex justify-between text-sm">
+                                    <span className="font-medium text-gray-300">{t.authScore}</span>
+                                    <span className="text-danger font-bold">20% (Likely Fake)</span>
+                                </div>
+                                <div className="w-full bg-gray-800 rounded-full h-2.5 overflow-hidden">
+                                    <div className="bg-danger h-full rounded-full relative transition-all duration-1000" style={{ width: '20%' }}>
+                                        <div className="absolute inset-0 bg-white/20 w-full animate-[pulse_2s_ease-in-out_infinite]"></div>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
+                        )}
                     </div>
 
                     <div className="space-y-6">
-                        <div className="glass p-6 rounded-2xl border-t-4 border-t-warning shadow-xl transition-transform hover:-translate-y-1 duration-300">
-                            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2"><IconActivity className="text-warning" /> {t.aiResult}</h3>
-                            <p className="text-gray-300 text-sm leading-relaxed mb-5">
-                                Image analysis indicates a <span className="text-warning font-semibold">high probability of AI generation</span>. StyleGAN artifacts detected around the hair edges and asymmetrical background blurring.
-                            </p>
-                            <div className="bg-warning/10 text-warning px-4 py-3 rounded-lg border border-warning/20 flex gap-3 text-sm items-start">
-                                <IconAlertTriangle className="shrink-0 mt-0.5 w-5 h-5" />
-                                <p className="leading-relaxed">Reverse image search matches 14 other profiles across 5 different dating platforms under different names.</p>
-                            </div>
-                        </div>
+                        {scanComplete ? (
+                            <>
+                                <div className="glass p-6 rounded-2xl border-t-4 border-t-warning shadow-xl transition-transform hover:-translate-y-1 duration-300 animate-fade-in">
+                                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2"><IconActivity className="text-warning" /> {t.aiResult}</h3>
+                                    <p className="text-gray-300 text-sm leading-relaxed mb-5">
+                                        Image analysis indicates a <span className="text-warning font-semibold">high probability of AI generation</span>. StyleGAN artifacts detected around the hair edges and asymmetrical background blurring.
+                                    </p>
+                                    <div className="bg-warning/10 text-warning px-4 py-3 rounded-lg border border-warning/20 flex gap-3 text-sm items-start">
+                                        <IconAlertTriangle className="shrink-0 mt-0.5 w-5 h-5" />
+                                        <p className="leading-relaxed">Reverse image search matches 14 other profiles across 5 different dating platforms under different names.</p>
+                                    </div>
+                                </div>
 
-                        <div className="glass p-6 rounded-2xl shadow-xl transition-transform hover:-translate-y-1 duration-300">
-                            <h3 className="text-lg font-semibold mb-5">{t.susIndicators}</h3>
-                            <ul className="space-y-4">
-                                <li className="flex items-start gap-3 bg-gray-900/30 p-3 rounded-lg border border-gray-800/50">
-                                    <div className="bg-danger/20 p-1.5 rounded-md mt-0.5 shadow-sm shadow-danger/20"><IconAlertTriangle className="w-4 h-4 text-danger" /></div>
-                                    <span className="text-sm text-gray-300">Account created less than 7 days ago.</span>
-                                </li>
-                                <li className="flex items-start gap-3 bg-gray-900/30 p-3 rounded-lg border border-gray-800/50">
-                                    <div className="bg-danger/20 p-1.5 rounded-md mt-0.5 shadow-sm shadow-danger/20"><IconAlertTriangle className="w-4 h-4 text-danger" /></div>
-                                    <span className="text-sm text-gray-300">Only 1 photo uploaded, no linked social media.</span>
-                                </li>
-                                <li className="flex items-start gap-3 bg-gray-900/30 p-3 rounded-lg border border-gray-800/50">
-                                    <div className="bg-warning/20 p-1.5 rounded-md mt-0.5 shadow-sm shadow-warning/20"><IconAlertTriangle className="w-4 h-4 text-warning" /></div>
-                                    <span className="text-sm text-gray-300">Bio contains generic copy-pasted romance text.</span>
-                                </li>
-                            </ul>
-                        </div>
+                                <div className="glass p-6 rounded-2xl shadow-xl transition-transform hover:-translate-y-1 duration-300 animate-fade-in" style={{ animationDelay: '0.2s' }}>
+                                    <h3 className="text-lg font-semibold mb-5">{t.susIndicators}</h3>
+                                    <ul className="space-y-4">
+                                        <li className="flex items-start gap-3 bg-gray-900/30 p-3 rounded-lg border border-gray-800/50">
+                                            <div className="bg-danger/20 p-1.5 rounded-md mt-0.5 shadow-sm shadow-danger/20"><IconAlertTriangle className="w-4 h-4 text-danger" /></div>
+                                            <span className="text-sm text-gray-300">Account created less than 7 days ago.</span>
+                                        </li>
+                                        <li className="flex items-start gap-3 bg-gray-900/30 p-3 rounded-lg border border-gray-800/50">
+                                            <div className="bg-danger/20 p-1.5 rounded-md mt-0.5 shadow-sm shadow-danger/20"><IconAlertTriangle className="w-4 h-4 text-danger" /></div>
+                                            <span className="text-sm text-gray-300">Only 1 photo uploaded, no linked social media.</span>
+                                        </li>
+                                        <li className="flex items-start gap-3 bg-gray-900/30 p-3 rounded-lg border border-gray-800/50">
+                                            <div className="bg-warning/20 p-1.5 rounded-md mt-0.5 shadow-sm shadow-warning/20"><IconAlertTriangle className="w-4 h-4 text-warning" /></div>
+                                            <span className="text-sm text-gray-300">Bio contains generic copy-pasted romance text.</span>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </>
+                        ) : (
+                            <div className="glass p-6 rounded-2xl flex flex-col items-center justify-center h-full text-center">
+                                <IconActivity className={`w-12 h-12 text-primary mb-4 ${isScanning ? 'animate-bounce' : 'opacity-50'}`} />
+                                <h3 className="text-lg font-medium text-gray-300">{isScanning ? 'Running Deepfake Detection Models...' : 'Awaiting Profile Scan'}</h3>
+                                <p className="text-sm text-gray-500 mt-2">{isScanning ? 'Analyzing biometrics, reverse searching images, and evaluating metadata.' : 'Click "Scan New Profile" to begin analysis.'}</p>
+                            </div>
+                        )}
                     </div>
                 </div>
             );
@@ -733,8 +854,8 @@
                                                 key={tab.id}
                                                 onClick={() => handleTabChange(tab.id)}
                                                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${activeTab === tab.id
-                                                        ? 'bg-primary/15 text-primary border border-primary/30 shadow-inner'
-                                                        : 'text-gray-400 hover:bg-gray-800/50 hover:text-white transparent border border-transparent'
+                                                    ? 'bg-primary/15 text-primary border border-primary/30 shadow-inner'
+                                                    : 'text-gray-400 hover:bg-gray-800/50 hover:text-white transparent border border-transparent'
                                                     }`}
                                             >
                                                 {tab.icon}
@@ -781,8 +902,8 @@
                                             key={tab.id}
                                             onClick={() => handleTabChange(tab.id)}
                                             className={`w-full text-left px-3 py-3 rounded-md text-base font-medium flex items-center gap-3 ${activeTab === tab.id
-                                                    ? 'bg-primary/20 text-primary border-l-4 border-primary'
-                                                    : 'text-gray-300 hover:bg-gray-800 hover:text-white border-l-4 border-transparent'
+                                                ? 'bg-primary/20 text-primary border-l-4 border-primary'
+                                                : 'text-gray-300 hover:bg-gray-800 hover:text-white border-l-4 border-transparent'
                                                 }`}
                                         >
                                             {tab.icon}
