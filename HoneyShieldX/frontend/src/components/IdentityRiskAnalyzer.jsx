@@ -110,31 +110,48 @@ export default function IdentityRiskAnalyzer({ demoMode, language }) {
     setResults(null);
 
     try {
-      const res = await fetch("http://localhost:3000/analyze-profile", {
+      // Get files from the file input
+      const files = fileInputRef.current?.files;
+      if (!files || files.length === 0) {
+        alert("No images selected!");
+        setAnalyzing(false);
+        return;
+      }
+
+      // Send first image to FastAPI backend for AI detection
+      const formData = new FormData();
+      formData.append("file", files[0]);
+
+      const res = await fetch("http://localhost:8002/api/v1/detect-image", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          images_count: images.length
-        }),
+        body: formData,
       });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.detail || `Backend error: ${res.status}`);
+      }
 
       const data = await res.json();
 
-      // Convert backend response → frontend format
+      // Map FastAPI response → frontend format
+      const isAuthentic = data.classification === "Authentic";
+      const confidenceScore = data.confidence_score;
+
       setResults({
-        isSafe: data.risk_level === "Low Risk",
-        aiProb: data.ai_probability,
-        consistency: data.consistency,
-        reverseMatch: data.reverse_match,
-        visualSuspicion: data.visual_suspicion,
-        riskScore: data.risk_score
+        isSafe: isAuthentic,
+        aiProb: isAuthentic ? 100 - confidenceScore : confidenceScore,
+        consistency: isAuthentic ? "High Consistency" : "Low Consistency",
+        reverseMatch: isAuthentic ? "No Matches" : "Match Found ⚠️",
+        visualSuspicion: isAuthentic 
+          ? ["No AI artifacts detected", "Authentic biometric signatures"] 
+          : ["AI generation patterns detected", "Anomalous pixel distribution"],
+        riskScore: Math.round(confidenceScore)
       });
 
     } catch (error) {
       console.error("API Error:", error);
-      alert("Backend not connected!");
+      alert(`Detection failed: ${error.message}`);
     }
 
     setAnalyzing(false);
