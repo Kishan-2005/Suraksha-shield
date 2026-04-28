@@ -1,21 +1,59 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Activity, ShieldCheck, AlertTriangle, Users, TrendingUp, BarChart2, Globe } from 'lucide-react';
 
-export default function MainDashboard({ demoMode }) {
+export default function MainDashboard({ demoMode, language }) {
+  const [statsData, setStatsData] = useState({ scams: 1427, threats: 0, incidents: [] });
+
+  const t = {
+    en: {
+      title: "Command Center", subtitle: "Global Telemetry & System Status", scams: "Scams Prevented", threats: "Active Threats", profiles: "Profiles Scanned", uptime: "System Uptime", map: "Global Threat Map", monitoring: "Monitoring Network...", incidents: "Recent Incidents", highRisk: "High Risk", warning: "Warning", info: "Info", justNow: "Just Now", romanceScam: "Romance Scam Detected", romanceDesc: "EDI Spike + Financial Request intercepted.", deepfake: "Deepfake Audio Match", deepfakeDesc: "Known scammer voiceprint matched in call.", dbUpdate: "System DB Update", dbDesc: "Added 42k new known scam vectors."
+    },
+    hi: {
+      title: "कमांड सेंटर", subtitle: "ग्लोबल टेलीमेट्री और सिस्टम स्थिति", scams: "स्कैम रोके गए", threats: "सक्रिय खतरे", profiles: "प्रोफ़ाइल स्कैन किए गए", uptime: "सिस्टम अपटाइम", map: "ग्लोबल थ्रेट मैप", monitoring: "नेटवर्क मॉनिटर कर रहा है...", incidents: "हाल की घटनाएँ", highRisk: "उच्च जोखिम", warning: "चेतावनी", info: "जानकारी", justNow: "अभी-अभी", romanceScam: "रोमांस स्कैम का पता चला", romanceDesc: "ईडीआई स्पाइक + वित्तीय अनुरोध इंटरसेप्ट किया गया।", deepfake: "डीपफेक ऑडियो मैच", deepfakeDesc: "कॉल में ज्ञात स्कैमर वॉयसप्रिंट मैच हुआ।", dbUpdate: "सिस्टम डीबी अपडेट", dbDesc: "42k नए ज्ञात स्कैम वैक्टर जोड़े गए।"
+    },
+    kn: {
+      title: "ಕಮಾಂಡ್ ಸೆಂಟರ್", subtitle: "ಗ್ಲೋಬಲ್ ಟೆಲಿಮೆಟ್ರಿ ಮತ್ತು ಸಿಸ್ಟಮ್ ಸ್ಥಿತಿ", scams: "ತಡೆಗಟ್ಟಿದ ಸ್ಕ್ಯಾಮ್‌ಗಳು", threats: "ಸಕ್ರಿಯ ಬೆದರಿಕೆಗಳು", profiles: "ಸ್ಕ್ಯಾನ್ ಮಾಡಿದ ಪ್ರೊಫೈಲ್‌ಗಳು", uptime: "ಸಿಸ್ಟಮ್ ಅಪ್‌ಟೈಮ್", map: "ಗ್ಲೋಬಲ್ ಥ್ರೆಟ್ ಮ್ಯಾಪ್", monitoring: "ನೆಟ್‌ವರ್ಕ್ ಮಾನಿಟರ್ ಆಗುತ್ತಿದೆ...", incidents: "ಇತ್ತೀಚಿನ ಘಟನೆಗಳು", highRisk: "ಹೆಚ್ಚಿನ ಅಪಾಯ", warning: "ಎಚ್ಚರಿಕೆ", info: "ಮಾಹಿತಿ", justNow: "ಈಗಷ್ಟೇ", romanceScam: "ರೊಮ್ಯಾನ್ಸ್ ಸ್ಕ್ಯಾಮ್ ಪತ್ತೆಯಾಗಿದೆ", romanceDesc: "ಇಡಿಐ ಸ್ಪೈಕ್ + ಆರ್ಥಿಕ ವಿನಂತಿ ತಡೆಹಿಡಿಯಲಾಗಿದೆ.", deepfake: "ಡೀಪ್‌ಫೇಕ್ ಆಡಿಯೋ ಮ್ಯಾಚ್", deepfakeDesc: "ಕಾಲಿನಲ್ಲಿ ಪರಿಚಿತ ಸ್ಕ್ಯಾಮರ್ ವಾಯ್ಸ್‌ಪ್ರಿಂಟ್ ಮ್ಯಾಚ್ ಆಗಿದೆ.", dbUpdate: "ಸಿಸ್ಟಮ್ ಡಿಬಿ ಅಪ್‌ಡೇಟ್", dbDesc: "42k ಹೊಸ ಸ್ಕ್ಯಾಮ್ ವೆಕ್ಟರ್‌ಗಳನ್ನು ಸೇರಿಸಲಾಗಿದೆ."
+    }
+  };
+
+  const l = t[language || 'en'];
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const res = await fetch('http://127.0.0.1:5000/api/stats');
+        if (res.ok) {
+          const data = await res.json();
+          setStatsData({
+            scams: data.scams_prevented,
+            threats: data.active_threats,
+            incidents: data.incidents
+          });
+        }
+      } catch (err) {
+        console.error("Backend not running. Using fallback UI.", err);
+      }
+    };
+    
+    fetchStats();
+    const interval = setInterval(fetchStats, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
   const stats = [
-    { label: "Scams Prevented", value: demoMode ? "1,428" : "1,427", change: "+12%", icon: ShieldCheck, color: "emerald" },
-    { label: "Active Threats", value: demoMode ? "1" : "0", change: demoMode ? "+1" : "0", icon: AlertTriangle, color: "red" },
-    { label: "Profiles Scanned", value: "84,592", change: "+4.2%", icon: Users, color: "blue" },
-    { label: "System Uptime", value: "99.9%", change: "Stable", icon: Activity, color: "cyan" }
+    { label: l.scams, value: statsData.scams.toLocaleString(), change: "+12%", icon: ShieldCheck, color: "emerald" },
+    { label: l.threats, value: statsData.threats.toString(), change: statsData.threats > 0 ? `+${statsData.threats}` : "0", icon: AlertTriangle, color: "red" },
+    { label: l.profiles, value: "84,592", change: "+4.2%", icon: Users, color: "blue" },
+    { label: l.uptime, value: "99.9%", change: "Stable", icon: Activity, color: "cyan" }
   ];
 
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="border-b border-slate-800 pb-4">
         <h2 className="text-2xl font-black uppercase tracking-widest text-white flex items-center gap-2">
-          <BarChart2 className="w-6 h-6 text-cyan-400" /> Command Center
+          <BarChart2 className="w-6 h-6 text-cyan-400" /> {l.title}
         </h2>
-        <p className="text-xs text-slate-400 font-mono tracking-widest mt-1">Global Telemetry & System Status</p>
+        <p className="text-xs text-slate-400 font-mono tracking-widest mt-1 uppercase">{l.subtitle}</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -44,12 +82,11 @@ export default function MainDashboard({ demoMode }) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 glass-panel p-6 rounded-2xl border border-slate-700 h-[400px] flex flex-col">
           <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-            <Globe className="w-4 h-4" /> Global Threat Map
+            <Globe className="w-4 h-4" /> {l.map}
           </h3>
           <div className="flex-1 bg-[#0b1120] border border-slate-800 rounded-xl relative flex items-center justify-center overflow-hidden">
-            {/* Mock map visualization using CSS */}
             <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(#06b6d4 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
-            {demoMode && (
+            {statsData.threats > 0 && (
               <>
                 <div className="absolute top-[40%] left-[30%] w-3 h-3 bg-red-500 rounded-full animate-ping shadow-[0_0_15px_rgba(220,38,38,1)]"></div>
                 <div className="absolute top-[40%] left-[30%] w-3 h-3 bg-red-500 rounded-full"></div>
@@ -58,40 +95,40 @@ export default function MainDashboard({ demoMode }) {
                 </svg>
               </>
             )}
-            {!demoMode && <div className="text-slate-500 font-mono text-xs uppercase tracking-widest flex items-center gap-2"><Activity className="w-4 h-4" /> Monitoring Network...</div>}
+            {statsData.threats === 0 && <div className="text-slate-500 font-mono text-xs uppercase tracking-widest flex items-center gap-2"><Activity className="w-4 h-4" /> {l.monitoring}</div>}
           </div>
         </div>
 
         <div className="glass-panel p-6 rounded-2xl border border-slate-700 h-[400px] flex flex-col">
           <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-            <TrendingUp className="w-4 h-4" /> Recent Incidents
+            <TrendingUp className="w-4 h-4" /> {l.incidents}
           </h3>
           <div className="flex-1 overflow-y-auto space-y-3 pr-2">
-            {demoMode && (
-              <div className="bg-red-950/30 border border-red-500/30 p-3 rounded-xl">
+            {statsData.incidents.map((inc, i) => (
+              <div key={i} className="bg-red-950/30 border border-red-500/30 p-3 rounded-xl">
                 <div className="flex justify-between items-center mb-1">
-                  <span className="text-[10px] font-bold uppercase text-red-400 bg-red-500/10 px-2 py-0.5 rounded">High Risk</span>
-                  <span className="text-[9px] font-mono text-slate-500">Just Now</span>
+                  <span className="text-[10px] font-bold uppercase text-red-400 bg-red-500/10 px-2 py-0.5 rounded">{l.highRisk}</span>
+                  <span className="text-[9px] font-mono text-slate-500">{inc.time}</span>
                 </div>
-                <p className="text-xs text-slate-300 font-bold">Romance Scam Detected</p>
-                <p className="text-[10px] text-slate-400 mt-1">EDI Spike + Financial Request intercepted.</p>
+                <p className="text-xs text-slate-300 font-bold">{inc.stage}</p>
+                <p className="text-[10px] text-slate-400 mt-1">{inc.desc}</p>
               </div>
-            )}
+            ))}
             <div className="bg-[#0b1120] border border-slate-800 p-3 rounded-xl">
               <div className="flex justify-between items-center mb-1">
-                <span className="text-[10px] font-bold uppercase text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded">Warning</span>
+                <span className="text-[10px] font-bold uppercase text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded">{l.warning}</span>
                 <span className="text-[9px] font-mono text-slate-500">2h ago</span>
               </div>
-              <p className="text-xs text-slate-300 font-bold">Deepfake Audio Match</p>
-              <p className="text-[10px] text-slate-400 mt-1">Known scammer voiceprint matched in call.</p>
+              <p className="text-xs text-slate-300 font-bold">{l.deepfake}</p>
+              <p className="text-[10px] text-slate-400 mt-1">{l.deepfakeDesc}</p>
             </div>
             <div className="bg-[#0b1120] border border-slate-800 p-3 rounded-xl">
               <div className="flex justify-between items-center mb-1">
-                <span className="text-[10px] font-bold uppercase text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded">Info</span>
+                <span className="text-[10px] font-bold uppercase text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded">{l.info}</span>
                 <span className="text-[9px] font-mono text-slate-500">5h ago</span>
               </div>
-              <p className="text-xs text-slate-300 font-bold">System DB Update</p>
-              <p className="text-[10px] text-slate-400 mt-1">Added 42k new known scam vectors.</p>
+              <p className="text-xs text-slate-300 font-bold">{l.dbUpdate}</p>
+              <p className="text-[10px] text-slate-400 mt-1">{l.dbDesc}</p>
             </div>
           </div>
         </div>

@@ -27,6 +27,9 @@ def build_standalone():
     with open("frontend/src/components/MainDashboard.jsx", "r", encoding="utf-8") as f:
         dashboard = clean_imports(f.read())
 
+    with open("frontend/src/components/NumberRiskAnalyzer.jsx", "r", encoding="utf-8") as f:
+        number_analyzer = clean_imports(f.read())
+
     with open("frontend/src/components/UserProfile.jsx", "r", encoding="utf-8") as f:
         profile = clean_imports(f.read())
 
@@ -102,13 +105,14 @@ def build_standalone():
       Cpu, Zap, Eye, Crosshair, Fingerprint, MapPin, BarChart2, CheckCircle2, CheckCircle, ScanLine,
       Lock, Globe, Database, BrainCircuit, ActivitySquare, UploadCloud, Image: ImageIcon, Scan, ShieldAlert,
       Share2, Heart, Clock, DollarSign, Unlock, TrendingUp, XOctagon, StopCircle, UserX, MessageSquare,
-      Mail, ArrowRight, UserPlus, ArrowLeft, Key, CreditCard, LogOut, Settings, ShieldCheck, Users, AlertCircle, Send, X
+      Mail, ArrowRight, UserPlus, ArrowLeft, Key, CreditCard, LogOut, Settings, ShieldCheck, Users, AlertCircle, Send, X, Search, Radio
     }} = Lucide;
 
 {identity}
 {reports}
 {edi}
 {nudge}
+{number_analyzer}
 {login}
 {register}
 {dashboard}

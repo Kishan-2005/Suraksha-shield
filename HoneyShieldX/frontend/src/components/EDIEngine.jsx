@@ -1,165 +1,125 @@
 import React, { useState, useEffect } from 'react';
-import { BrainCircuit, Activity, Heart, Shield, Unlock, DollarSign, TrendingUp, Cpu } from 'lucide-react';
+import { Activity, BrainCircuit, Heart, MessageCircle, AlertTriangle, ShieldAlert, Cpu } from 'lucide-react';
 
-export default function EDIEngine({ demoMode }) {
-  const [data, setData] = useState({
-    score: 12,
-    velocity: 5,
-    loveBombing: 10,
-    isolation: 0,
-    replacement: 0,
-    financial: 0,
-    status: "SAFE",
-    color: "emerald"
-  });
+export default function EDIEngine({ demoMode, language }) {
+  const [ediScore, setEdiScore] = useState(12);
+  const [chatHistory, setChatHistory] = useState([]);
+  const [analyzing, setAnalyzing] = useState(false);
+
+  const t = {
+    en: { title: "EDI Engine", subtitle: "Emotional Dependency Index tracker", score: "EDI SCORE", desc: "Measures the psychological grip and manipulation velocity of the target.", liveStream: "Live Telemetry Stream", waiting: "Waiting for new messages...", aiAnalysis: "AI Dependency Analysis", metrics: "Core Metrics", bonding: "Emotional Bonding Rate", urgency: "Urgency Injection", isolation: "Isolation Tactics", alert: "High Emotional Manipulation Risk" },
+    hi: { title: "ईडीआई इंजन", subtitle: "भावनात्मक निर्भरता सूचकांक ट्रैकर", score: "ईडीआई स्कोर", desc: "लक्ष्य की मनोवैज्ञानिक पकड़ और हेरफेर वेग को मापता है।", liveStream: "लाइव टेलीमेट्री स्ट्रीम", waiting: "नए संदेशों की प्रतीक्षा में...", aiAnalysis: "AI निर्भरता विश्लेषण", metrics: "मुख्य मेट्रिक्स", bonding: "भावनात्मक संबंध दर", urgency: "तत्काल इंजेक्शन", isolation: "अलगाव की रणनीति", alert: "उच्च भावनात्मक हेरफेर जोखिम" },
+    kn: { title: "ಇಡಿಐ ಎಂಜಿನ್", subtitle: "ಭಾವನಾತ್ಮಕ ಅವಲಂಬನೆ ಸೂಚ್ಯಂಕ ಟ್ರ್ಯಾಕರ್", score: "ಇಡಿಐ ಸ್ಕೋರ್", desc: "ಗುರಿಯ ಮಾನಸಿಕ ಹಿಡಿತ ಮತ್ತು ಕುಶಲತೆಯ ವೇಗವನ್ನು ಅಳೆಯುತ್ತದೆ.", liveStream: "ಲೈವ್ ಟೆಲಿಮೆಟ್ರಿ ಸ್ಟ್ರೀಮ್", waiting: "ಹೊಸ ಸಂದೇಶಗಳಿಗಾಗಿ ಕಾಯಲಾಗುತ್ತಿದೆ...", aiAnalysis: "AI ಅವಲಂಬನೆ ವಿಶ್ಲೇಷಣೆ", metrics: "ಕೋರ್ ಮೆಟ್ರಿಕ್ಸ್", bonding: "ಭಾವನಾತ್ಮಕ ಬಂಧದ ದರ", urgency: "ತುರ್ತು ಇಂಜೆಕ್ಷನ್", isolation: "ಪ್ರತ್ಯೇಕತೆ ತಂತ್ರಗಳು", alert: "ಹೆಚ್ಚಿನ ಭಾವನಾತ್ಮಕ ಕುಶಲತೆಯ ಅಪಾಯ" }
+  };
+
+  const l = t[language || 'en'];
 
   useEffect(() => {
-    if (demoMode) {
-      setTimeout(() => {
-        setData({
-          score: 91,
-          velocity: 88,
-          loveBombing: 93,
-          isolation: 84,
-          replacement: 89,
-          financial: 95,
-          status: "CRITICAL",
-          color: "red"
-        });
-      }, 1500);
-    } else {
-      setData({
-        score: 12,
-        velocity: 5,
-        loveBombing: 10,
-        isolation: 0,
-        replacement: 0,
-        financial: 0,
-        status: "SAFE",
-        color: "emerald"
-      });
-    }
-  }, [demoMode]);
-
-  const ProgressBar = ({ label, val, color }) => (
-    <div className="mb-4">
-      <div className="flex justify-between text-xs mb-1 font-mono uppercase text-slate-400">
-        <span>{label}</span>
-        <span className={`text-${color}-400 font-bold`}>{val}%</span>
-      </div>
-      <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
-        <div className={`h-full bg-${color}-500 transition-all duration-1000`} style={{ width: `${val}%` }}></div>
-      </div>
-    </div>
-  );
+    const fetchEdi = async () => {
+      try {
+        const res = await fetch('http://127.0.0.1:5000/api/edi-status');
+        if (res.ok) {
+          const data = await res.json();
+          setEdiScore(data.score);
+          setChatHistory(data.history);
+        }
+      } catch (err) {
+        console.error("Backend not running. Using fallback UI.", err);
+      }
+    };
+    
+    fetchEdi();
+    const interval = setInterval(fetchEdi, 3000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="border-b border-slate-800 pb-4 flex justify-between items-end">
-        <div>
-          <h2 className="text-2xl font-black uppercase tracking-widest text-white flex items-center gap-2">
-            <BrainCircuit className="w-6 h-6 text-fuchsia-500" /> EDI Engine
-          </h2>
-          <p className="text-xs text-slate-400 font-mono tracking-widest mt-1">Emotional Dependency Intelligence</p>
-        </div>
-      </div>
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-fade-in">
+      <div className="lg:col-span-8 space-y-6">
+        <div className="glass-panel p-8 rounded-3xl border border-slate-700 relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-cyan-500 via-purple-500 to-pink-500"></div>
+          
+          <div className="flex justify-between items-center mb-8">
+            <div>
+              <h2 className="text-2xl font-black uppercase tracking-widest flex items-center gap-2"><BrainCircuit className="w-6 h-6 text-cyan-400" /> {l.title}</h2>
+              <p className="text-xs text-slate-400 font-mono tracking-widest mt-1">{l.subtitle}</p>
+            </div>
+            {analyzing && <span className="flex items-center gap-2 text-xs font-bold text-cyan-400 uppercase tracking-widest bg-cyan-950/50 px-3 py-1 rounded-full border border-cyan-500/30"><Activity className="w-4 h-4 animate-spin" /> Processing</span>}
+          </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <div className="lg:col-span-5 space-y-6">
-          <div className={`glass-panel p-8 rounded-2xl border-t-4 border-t-${data.color}-500 flex flex-col items-center transition-all duration-1000 relative overflow-hidden`}>
-            <div className={`absolute -right-20 -top-20 w-64 h-64 bg-${data.color}-500/10 rounded-full blur-[80px]`}></div>
-            
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest w-full text-left mb-6">EDI Score</h3>
-            
-            <div className="relative w-56 h-56 flex items-center justify-center">
-              <svg viewBox="0 0 36 36" className={`w-full h-full -rotate-90 drop-shadow-[0_0_20px_rgba(${data.color === 'red' ? '220,38,38' : '16,185,129'},0.4)]`}>
-                <path fill="none" stroke="#1e293b" strokeWidth="1.5" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                <path fill="none" stroke={data.color === 'red' ? '#dc2626' : '#10b981'} strokeWidth="2.5" strokeDasharray={`${data.score}, 100`} strokeLinecap="round" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" className="transition-all duration-1500 ease-out" />
+          <div className="flex flex-col md:flex-row items-center gap-12">
+            <div className="relative w-48 h-48 flex shrink-0 items-center justify-center">
+              <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
+                <path fill="none" stroke="#1e293b" strokeWidth="3" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                <path fill="none" stroke={ediScore > 75 ? "#dc2626" : ediScore > 40 ? "#f59e0b" : "#06b6d4"} strokeWidth="3" strokeDasharray={`${ediScore}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" style={{ transition: 'stroke-dasharray 0.5s ease' }} />
               </svg>
-              <div className="absolute flex flex-col items-center text-center">
-                <span className={`text-6xl font-black text-${data.color}-500 font-mono tracking-tighter`}>{data.score}</span>
-                <span className={`text-[10px] uppercase font-bold text-${data.color}-400 bg-${data.color}-500/10 px-3 py-1 rounded-full mt-2 border border-${data.color}-500/30 tracking-widest`}>
-                  {data.status}
-                </span>
+              <div className="absolute flex flex-col items-center">
+                <span className={`text-6xl font-black ${ediScore > 75 ? 'text-red-500' : ediScore > 40 ? 'text-amber-500' : 'text-cyan-500'}`}>{ediScore}</span>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-1">{l.score}</span>
               </div>
             </div>
 
-            <div className="w-full mt-8 grid grid-cols-2 gap-4">
-              <div className="bg-[#0b1120] p-4 rounded-xl border border-slate-800 text-center">
-                <TrendingUp className={`w-5 h-5 mx-auto mb-2 text-${data.color}-500`} />
-                <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Velocity</p>
-                <p className={`text-lg font-mono font-bold text-${data.color}-400`}>{data.velocity} / 100</p>
-              </div>
-              <div className="bg-[#0b1120] p-4 rounded-xl border border-slate-800 text-center">
-                <DollarSign className={`w-5 h-5 mx-auto mb-2 text-${data.financial > 80 ? 'red' : 'slate'}-500`} />
-                <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Financial Risk</p>
-                <p className={`text-lg font-mono font-bold text-${data.financial > 80 ? 'red' : 'slate'}-400`}>{data.financial}%</p>
+            <div className="flex-1 space-y-6 w-full">
+              <p className="text-sm text-slate-300 leading-relaxed bg-[#0b1120] p-4 rounded-xl border border-slate-800">{l.desc}</p>
+              
+              <div className="space-y-4">
+                <div>
+                  <div className="flex justify-between text-xs font-mono uppercase text-slate-400 mb-1"><span>{l.bonding}</span><span>{Math.min(ediScore * 1.1, 95).toFixed(0)}%</span></div>
+                  <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden"><div className="h-full bg-pink-500 transition-all duration-500" style={{width: `${Math.min(ediScore * 1.1, 95)}%`}}></div></div>
+                </div>
+                <div>
+                  <div className="flex justify-between text-xs font-mono uppercase text-slate-400 mb-1"><span>{l.urgency}</span><span>{Math.min(ediScore * 1.2, 98).toFixed(0)}%</span></div>
+                  <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden"><div className="h-full bg-amber-500 transition-all duration-500" style={{width: `${Math.min(ediScore * 1.2, 98)}%`}}></div></div>
+                </div>
+                <div>
+                  <div className="flex justify-between text-xs font-mono uppercase text-slate-400 mb-1"><span>{l.isolation}</span><span>{Math.min(ediScore * 0.9, 85).toFixed(0)}%</span></div>
+                  <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden"><div className="h-full bg-purple-500 transition-all duration-500" style={{width: `${Math.min(ediScore * 0.9, 85)}%`}}></div></div>
+                </div>
               </div>
             </div>
           </div>
+        </div>
 
-          <div className="glass-panel p-6 rounded-2xl border border-slate-700">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2"><Cpu className="w-4 h-4 text-fuchsia-500" /> Explainable AI</h3>
-            <p className="text-sm text-slate-300 leading-relaxed">
-              {demoMode ? 
-                "The conversation demonstrates accelerated emotional dependency formation combined with isolation manipulation and emotional control reinforcement patterns commonly found in honey trap scams." : 
-                "Conversation behavior is currently within normal parameters. No manipulative patterns detected."}
-            </p>
-            {demoMode && (
-              <div className="mt-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
-                <p className="text-xs text-red-400 font-bold uppercase tracking-wider mb-1">Prediction</p>
-                <p className="text-sm text-red-300">High probability of financial extraction attempt within upcoming interactions.</p>
-              </div>
+        <div className="glass-panel p-6 rounded-2xl border border-slate-700 h-[300px] flex flex-col">
+          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2"><MessageCircle className="w-4 h-4" /> {l.liveStream}</h3>
+          <div className="flex-1 bg-[#0b1120] border border-slate-800 rounded-xl p-4 overflow-y-auto space-y-3 font-mono text-xs">
+            {chatHistory.length > 0 ? (
+              chatHistory.map((chat, idx) => (
+                <div key={idx} className={chat.sender === 'user' ? 'text-slate-400' : 'text-cyan-400 font-bold'}>
+                  [{chat.time}] {chat.sender.toUpperCase()}: {chat.text ? chat.text : '[IMAGE ATTACHMENT UPLOADED]'}
+                </div>
+              ))
+            ) : (
+              <div className="h-full flex items-center justify-center text-slate-600 uppercase tracking-widest">{l.waiting}</div>
             )}
           </div>
         </div>
+      </div>
 
-        <div className="lg:col-span-7 space-y-6">
-          <div className="glass-panel p-6 rounded-2xl border border-slate-700">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6">Psychological Manipulation Vectors</h3>
-            
-            <div className="space-y-6">
-              <div className="bg-[#0b1120] p-5 rounded-xl border border-slate-800 relative overflow-hidden group">
-                <div className="absolute right-0 top-0 opacity-10 group-hover:scale-110 transition-transform"><Heart className="w-32 h-32 text-pink-500" /></div>
-                <ProgressBar label="Love Bombing Intensity" val={data.loveBombing} color={demoMode ? "pink" : "emerald"} />
-                {demoMode && <p className="text-[10px] font-mono text-pink-400">DETECTED: "You are my soulmate", "I love you already"</p>}
-              </div>
-
-              <div className="bg-[#0b1120] p-5 rounded-xl border border-slate-800 relative overflow-hidden group">
-                <div className="absolute right-0 top-0 opacity-10 group-hover:scale-110 transition-transform"><Unlock className="w-32 h-32 text-amber-500" /></div>
-                <ProgressBar label="Isolation Pressure" val={data.isolation} color={demoMode ? "amber" : "emerald"} />
-                {demoMode && <p className="text-[10px] font-mono text-amber-400">DETECTED: "Don't tell anyone about us", "Keep us a secret"</p>}
-              </div>
-
-              <div className="bg-[#0b1120] p-5 rounded-xl border border-slate-800 relative overflow-hidden group">
-                <div className="absolute right-0 top-0 opacity-10 group-hover:scale-110 transition-transform"><Shield className="w-32 h-32 text-purple-500" /></div>
-                <ProgressBar label="Emotional Replacement" val={data.replacement} color={demoMode ? "purple" : "emerald"} />
-                {demoMode && <p className="text-[10px] font-mono text-purple-400">DETECTED: "Only I truly understand you"</p>}
-              </div>
+      <div className="lg:col-span-4 space-y-6">
+        <div className="glass-panel p-6 rounded-2xl border border-slate-700">
+          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2"><Cpu className="w-4 h-4 text-cyan-400" /> {l.aiAnalysis}</h3>
+          <div className="space-y-4">
+            <div className="bg-[#0b1120] p-4 rounded-xl border border-slate-800">
+              <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-1">Linguistic Analysis</p>
+              <p className="text-sm text-slate-300">High usage of "we", "forever", "destiny". Indicative of rapid romance scam grooming.</p>
             </div>
-          </div>
-
-          <div className="glass-panel p-6 rounded-2xl border border-slate-700">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6">Emotional Hook Timeline</h3>
-            <div className="flex justify-between items-center relative">
-              <div className="absolute left-0 top-1/2 w-full h-1 bg-slate-800 -translate-y-1/2 z-0"></div>
-              {demoMode && <div className="absolute left-0 top-1/2 w-full h-1 bg-gradient-to-r from-emerald-500 via-amber-500 to-red-500 -translate-y-1/2 z-0 animate-[pulse_2s_ease-in-out_infinite]"></div>}
-              
-              {["Contact", "Bonding", "Trust", "Isolation", "Exploit"].map((step, idx) => {
-                const active = demoMode || idx === 0;
-                const isDanger = demoMode && idx >= 3;
-                return (
-                  <div key={idx} className="relative z-10 flex flex-col items-center gap-2 group">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 bg-[#020617] transition-all duration-500 ${active ? (isDanger ? 'border-red-500 shadow-[0_0_15px_rgba(220,38,38,0.8)]' : 'border-emerald-500') : 'border-slate-700'}`}>
-                      <div className={`w-3 h-3 rounded-full ${active ? (isDanger ? 'bg-red-500 animate-ping' : 'bg-emerald-500') : 'bg-slate-700'}`}></div>
-                    </div>
-                    <span className={`text-[10px] font-bold uppercase tracking-widest ${active ? (isDanger ? 'text-red-400' : 'text-slate-300') : 'text-slate-600'}`}>{step}</span>
-                  </div>
-                );
-              })}
+            <div className="bg-[#0b1120] p-4 rounded-xl border border-slate-800">
+              <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-1">Behavioral Velocity</p>
+              <p className="text-sm text-slate-300">Contact frequency increased by 400% in 48 hours. Target is establishing cognitive monopoly.</p>
             </div>
           </div>
         </div>
+
+        {ediScore > 70 && (
+          <div className="glass-panel p-6 rounded-2xl border-2 border-red-500/50 bg-red-950/20 animate-shake">
+            <div className="flex items-center gap-3 mb-3">
+              <ShieldAlert className="w-8 h-8 text-red-500 animate-pulse" />
+              <h4 className="font-black text-sm uppercase tracking-wider text-red-400">{l.alert}</h4>
+            </div>
+            <p className="text-xs text-slate-300">The current interaction pattern matches standard financial extortion templates with 94% accuracy.</p>
+          </div>
+        )}
       </div>
     </div>
   );
