@@ -2,8 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Activity, ShieldCheck, AlertTriangle, Users, TrendingUp, BarChart2, Globe } from 'lucide-react';
 import GlobalThreatMap from './GlobalThreatMap';
 
+import { useGlobalState } from '../context/GlobalStateContext';
+
 export default function MainDashboard({ demoMode, language }) {
-  const [statsData, setStatsData] = useState({ scams: 1427, threats: 0, incidents: [] });
+  const { sharedScamsPrevented, setSharedScamsPrevented, sharedActiveThreats, setSharedActiveThreats } = useGlobalState();
+  const [statsData, setStatsData] = useState({ incidents: [] });
 
   const t = {
     en: {
@@ -25,9 +28,9 @@ export default function MainDashboard({ demoMode, language }) {
         const res = await fetch('http://127.0.0.1:5000/api/stats');
         if (res.ok) {
           const data = await res.json();
+          setSharedScamsPrevented(data.scams_prevented);
+          setSharedActiveThreats(data.active_threats);
           setStatsData({
-            scams: data.scams_prevented,
-            threats: data.active_threats,
             incidents: data.incidents
           });
         }
@@ -42,8 +45,8 @@ export default function MainDashboard({ demoMode, language }) {
   }, []);
 
   const stats = [
-    { label: l.scams, value: statsData.scams.toLocaleString(), change: "+12%", icon: ShieldCheck, color: "emerald" },
-    { label: l.threats, value: statsData.threats.toString(), change: statsData.threats > 0 ? `+${statsData.threats}` : "0", icon: AlertTriangle, color: "red" },
+    { label: l.scams, value: sharedScamsPrevented.toLocaleString(), change: "+12%", icon: ShieldCheck, color: "emerald" },
+    { label: l.threats, value: sharedActiveThreats.toString(), change: sharedActiveThreats > 0 ? `+${sharedActiveThreats}` : "0", icon: AlertTriangle, color: "red" },
     { label: l.profiles, value: "84,592", change: "+4.2%", icon: Users, color: "blue" },
     { label: l.uptime, value: "99.9%", change: "Stable", icon: Activity, color: "cyan" }
   ];
@@ -55,7 +58,7 @@ export default function MainDashboard({ demoMode, language }) {
     { id: 4, lat: -33.8688, lng: 151.2093, type: "Financial Extortion" },
     { id: 5, lat: 19.0760, lng: 72.8777, type: "Spam Caller" }
   ];
-  const activeThreats = statsData.threats > 0 ? mockThreats.slice(0, Math.max(1, statsData.threats)) : [];
+  const activeThreats = sharedActiveThreats > 0 ? mockThreats.slice(0, Math.max(1, sharedActiveThreats)) : [];
 
   return (
     <div className="space-y-6 animate-fade-in">

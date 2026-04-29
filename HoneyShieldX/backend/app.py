@@ -2,9 +2,60 @@ from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 import datetime
 import os
+import sqlite3
 
 app = Flask(__name__)
 CORS(app)
+
+# Initialize SQLite database
+DB_FILE = os.path.join(os.path.dirname(__file__), "honeyshieldx.db")
+
+def init_db():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS stats (key TEXT PRIMARY KEY, value INTEGER)''')
+    c.execute("INSERT OR IGNORE INTO stats (key, value) VALUES ('scams_prevented', 1427)")
+    c.execute("INSERT OR IGNORE INTO stats (key, value) VALUES ('active_threats', 0)")
+    conn.commit()
+    conn.close()
+
+init_db()
+
+def get_scams_prevented():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("SELECT value FROM stats WHERE key = 'scams_prevented'")
+    row = c.fetchone()
+    conn.close()
+    return row[0] if row else 1427
+
+def increment_scams_prevented():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("UPDATE stats SET value = value + 1 WHERE key = 'scams_prevented'")
+    conn.commit()
+    c.execute("SELECT value FROM stats WHERE key = 'scams_prevented'")
+    row = c.fetchone()
+    conn.close()
+    return row[0] if row else 1427
+
+def get_active_threats():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("SELECT value FROM stats WHERE key = 'active_threats'")
+    row = c.fetchone()
+    conn.close()
+    return row[0] if row else 0
+
+def increment_active_threats():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("UPDATE stats SET value = value + 1 WHERE key = 'active_threats'")
+    conn.commit()
+    c.execute("SELECT value FROM stats WHERE key = 'active_threats'")
+    row = c.fetchone()
+    conn.close()
+    return row[0] if row else 0
 
 # In-memory "database" to share state between modules
 session_state = {
@@ -13,17 +64,32 @@ session_state = {
         {"sender": "receiver", "text": "Hey, how are you doing today?", "time": datetime.datetime.now().strftime("%H:%M")}
     ],
     "active_threats": 0,
-    "scams_prevented": 1427,
     "recent_incidents": []
 }
 
 @app.route('/api/stats', methods=['GET'])
 def get_stats():
     return jsonify({
-        "scams_prevented": session_state["scams_prevented"],
-        "active_threats": session_state["active_threats"],
+        "scams_prevented": get_scams_prevented(),
+        "active_threats": get_active_threats(),
         "edi_score": session_state["edi_score"],
         "incidents": session_state["recent_incidents"]
+    })
+
+@app.route('/api/dashboard/report-scam', methods=['POST'])
+def report_scam():
+    new_count = increment_scams_prevented()
+    return jsonify({
+        "success": True,
+        "scams_prevented": new_count
+    })
+
+@app.route('/api/dashboard/active-threat', methods=['POST'])
+def active_threat():
+    new_count = increment_active_threats()
+    return jsonify({
+        "success": True,
+        "active_threats": new_count
     })
 
 @app.route('/api/chat', methods=['POST'])
@@ -101,7 +167,6 @@ def send_chat():
         }
         cooldown = 60
         session_state["edi_score"] = min(session_state["edi_score"] + 30, 100)
-        session_state["active_threats"] += 1
         session_state["recent_incidents"].insert(0, {
             "risk": "danger",
             "stage": "Financial Extortion Attempt",
@@ -141,8 +206,8 @@ Generated On: {datetime.datetime.now()}
 
 GLOBAL TELEMETRY
 ----------------
-Active Threats: {session_state['active_threats']}
-Scams Prevented: {session_state['scams_prevented']}
+Active Threats: {get_active_threats()}
+Scams Prevented: {get_scams_prevented()}
 
 BEHAVIORAL ANALYSIS (EDI ENGINE)
 --------------------------------

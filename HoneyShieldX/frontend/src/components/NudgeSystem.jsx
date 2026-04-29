@@ -9,7 +9,7 @@ export default function NudgeSystem({ demoMode, language }) {
   const [activeNudge, setActiveNudge] = useState(null);
   const chatEndRef = useRef(null);
   const fileInputRef = useRef(null);
-  const { scammerProfile, setSharedChatHistory, setSharedEdiScore } = useGlobalState();
+  const { scammerProfile, setSharedChatHistory, setSharedEdiScore, setSharedScamsPrevented, setSharedActiveThreats } = useGlobalState();
 
   const [showBlockModal, setShowBlockModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
@@ -29,92 +29,7 @@ export default function NudgeSystem({ demoMode, language }) {
     setSharedChatHistory(messages);
   }, [messages, setSharedChatHistory]);
 
-  const generateDynamicReply = (userMessage) => {
-    const m = (userMessage || "").toLowerCase();
-    const userMsgCount = messages.filter(msg => msg.sender === 'user').length;
-    
-    let stage = 1;
-    if (userMsgCount >= 2 && userMsgCount <= 3) stage = 2;
-    else if (userMsgCount >= 4 && userMsgCount <= 5) stage = 3;
-    else if (userMsgCount >= 6) stage = 4;
-    
-    const categories = {
-      moneyAsk: { 
-        messages: ["I need around $2000 urgently.", "Even a small amount would help right now.", "I need money for hospital treatment.", "I need help paying an emergency bill."] 
-      },
-      concern: { 
-        messages: ["I'm in serious trouble right now.", "Something terrible happened suddenly.", "I had a medical emergency.", "I'm completely stressed and scared."] 
-      },
-      helpAgree: { 
-        messages: ["Can you transfer the money today?", "Please send it urgently.", "Bitcoin transfer would be fastest.", "I desperately need your help right now."] 
-      },
-      distrust: { 
-        messages: ["Why would you think that about me?", "I thought we had trust.", "You're hurting me by doubting me.", "I would never lie to you."] 
-      },
-      detailsAsk: { 
-        messages: ["My bank account got frozen suddenly.", "I need money for emergency surgery.", "I'm trapped in a difficult situation.", "I have nobody else to help me."] 
-      },
-      stage1: { 
-        messages: ["Hey, how are you doing?", "Hi 🙂 it's nice hearing from you.", "Hello, how was your day?", "Hey! I missed talking to you."] 
-      },
-      stage2: { 
-        messages: ["I've been feeling lonely lately.", "You're one of the few people I trust.", "Talking to you makes me feel safe."] 
-      },
-      stage3: { 
-        messages: ["Something stressful happened today.", "I'm dealing with a difficult situation.", "I honestly don't know what to do anymore."] 
-      },
-      stage4: { 
-        messages: ["I urgently need help.", "I need money for an emergency.", "Can you help me financially?"] 
-      }
-    };
-
-    let selectedCategory = null;
-
-    if (/^hi|^hello|^hey|^hii|^good morning|^good evening/i.test(m)) {
-      selectedCategory = categories.stage1;
-    } else if (/how much|what amount|amount|how much money|how much do you need/i.test(m)) {
-      selectedCategory = categories.moneyAsk;
-    } else if (/what happened|are you ok|are you okay|tell me|what's wrong|whats wrong/i.test(m)) {
-      selectedCategory = categories.concern;
-    } else if (/(^ok(ay)?$)|i will help|tell me how|what should i do|how can i help/i.test(m)) {
-      selectedCategory = categories.helpAgree;
-    } else if (/don't trust|trust you|fake|scam|lie|doubt/i.test(m)) {
-      selectedCategory = categories.distrust;
-    } else if (/explain|exactly happened|tell me everything/i.test(m)) {
-      selectedCategory = categories.detailsAsk;
-    }
-
-    if (!selectedCategory) {
-      if (stage === 1) selectedCategory = categories.stage1;
-      else if (stage === 2) selectedCategory = categories.stage2;
-      else if (stage === 3) selectedCategory = categories.stage3;
-      else selectedCategory = categories.stage4;
-    }
-    
-    return selectedCategory.messages[Math.floor(Math.random() * selectedCategory.messages.length)];
-  };
-
-  const analyzeMessage = (msg) => {
-    if (!msg) return null;
-    const m = msg.toLowerCase();
-    
-    if (/crypto|bitcoin/i.test(m)) {
-      return { type: 'Crypto request', text: '⚠ Suspicious crypto payment request detected', ediInc: 20 };
-    }
-    if (/money|hospital|frozen|funds|transfer/i.test(m)) {
-      return { type: 'Financial request', text: '⚠ Financial fraud pattern detected', ediInc: 15 };
-    }
-    if (/immediately|hurry|hour|too late/i.test(m)) {
-      return { type: 'Urgency tactics', text: '⚠ Urgency tactics detected', ediInc: 12 };
-    }
-    if (/understands me|distant|cared about me|breaking my heart|abandoned|special/i.test(m)) {
-      return { type: 'Emotional manipulation', text: '⚠ Emotional manipulation detected', ediInc: 10 };
-    }
-    if (/trust|shared|lie/i.test(m)) {
-      return { type: 'Trust exploitation', text: '⚠ Trust exploitation detected', ediInc: 8 };
-    }
-    return null;
-  };
+  // Backend handles dynamic replies and message analysis
 
   const t = {
     en: { session: "Active Session", placeholder: "Type a message...", engine: "Intervention Engine", desc: "The Counter-Manipulation system actively analyzes inbound messages to psychologically protect you from emotional exploitation and grooming tactics.", monitoring: "Monitoring Stream...", block: "Block Contact", report: "Report Scam", cooldownTitle: "Cognitive Cooldown Active", cooldownDesc: "Extreme emotional manipulation detected. Take a moment to think rationally. Actions are temporarily locked.", devilsAdvocate: "Devil's Advocate Reality Check", realityCheck: "\"Have you verified this person's identity on a live video call? If not, why are they asking for money?\"" },
@@ -165,34 +80,37 @@ export default function NudgeSystem({ demoMode, language }) {
     const msgToSend = inputText;
     setInputText('');
 
-    const replyText = generateDynamicReply(msgToSend);
-
-    setTimeout(() => {
-      setMessages(prev => [...prev, { sender: 'receiver', text: replyText, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
+    try {
+      const res = await fetch('http://127.0.0.1:5000/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: msgToSend, language: language || 'en' })
+      });
+      const data = await res.json();
       
-      const detectedAlert = analyzeMessage(replyText);
-      if (detectedAlert) {
-        setChatAlert(detectedAlert);
-        setSharedEdiScore(prev => Math.min(prev + detectedAlert.ediInc, 100));
+      setMessages(prev => [...prev, { sender: 'receiver', text: data.bot_reply, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
+      
+      if (data.nudge) {
+        setChatAlert({ type: data.nudge.type, text: data.nudge.title });
+        setSharedEdiScore(data.edi_score);
         setThreatLevel(prev => {
           const newLevel = prev + 1;
-          setActiveNudge({
-            type: newLevel >= 3 ? 'critical' : 'danger',
-            title: newLevel >= 3 ? 'CRITICAL SYSTEM INTERVENTION' : 'System Intervention',
-            msg: `Pattern identified: ${detectedAlert.type}. Please exercise extreme caution.`
-          });
+          setActiveNudge(data.nudge);
           return newLevel;
         });
+        
         setPopupSuspiciousCount(prev => {
           const newCount = prev + 1;
           if (newCount >= popupThreshold) {
-            setCooldown(10);
+            setCooldown(data.cooldown > 0 ? data.cooldown : 10);
             setShowContinueModal(true);
           }
           return newCount;
         });
       }
-    }, 1000);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const handleImageUpload = async (e) => {
@@ -202,26 +120,37 @@ export default function NudgeSystem({ demoMode, language }) {
       
       setMessages(prev => [...prev, { sender: 'user', image: imgUrl, time }]);
       
-      const replyText = generateDynamicReply("");
-
-      setTimeout(() => {
-        setMessages(prev => [...prev, { sender: 'receiver', text: replyText, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
+      try {
+        const res = await fetch('http://127.0.0.1:5000/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ has_image: true, language: language || 'en' })
+        });
+        const data = await res.json();
         
-        const detectedAlert = analyzeMessage(replyText);
-        if (detectedAlert) {
-          setChatAlert(detectedAlert);
-          setSharedEdiScore(prev => Math.min(prev + detectedAlert.ediInc, 100));
-          setThreatLevel(prev => prev + 1);
+        setMessages(prev => [...prev, { sender: 'receiver', text: data.bot_reply, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
+        
+        if (data.nudge) {
+          setChatAlert({ type: data.nudge.type, text: data.nudge.title });
+          setSharedEdiScore(data.edi_score);
+          setThreatLevel(prev => {
+            const newLevel = prev + 1;
+            setActiveNudge(data.nudge);
+            return newLevel;
+          });
+          
           setPopupSuspiciousCount(prev => {
             const newCount = prev + 1;
             if (newCount >= popupThreshold) {
-              setCooldown(10);
+              setCooldown(data.cooldown > 0 ? data.cooldown : 10);
               setShowContinueModal(true);
             }
             return newCount;
           });
         }
-      }, 2000);
+      } catch (err) {
+        console.error(err);
+      }
     }
   };
 
@@ -262,16 +191,26 @@ export default function NudgeSystem({ demoMode, language }) {
               ⚠ Suspicious manipulation behavior detected. Continue conversation?
             </p>
             <div className="flex justify-end gap-4">
-              <button onClick={() => {
+              <button onClick={async () => {
                 setShowContinueModal(false);
                 setIsChatTerminated(true);
+                try {
+                  const res = await fetch('http://127.0.0.1:5000/api/dashboard/active-threat', { method: 'POST' });
+                  const data = await res.json();
+                  if (data.success && data.active_threats !== undefined) setSharedActiveThreats(data.active_threats);
+                } catch (e) { console.error(e); }
               }} className="px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-widest bg-red-600 hover:bg-red-500 text-white transition-colors shadow-[0_0_15px_rgba(220,38,38,0.3)]">
                 Exit Conversation
               </button>
-              <button onClick={() => {
+              <button onClick={async () => {
                 setShowContinueModal(false);
                 setPopupSuspiciousCount(0);
                 setPopupThreshold(3);
+                try {
+                  const res = await fetch('http://127.0.0.1:5000/api/dashboard/active-threat', { method: 'POST' });
+                  const data = await res.json();
+                  if (data.success && data.active_threats !== undefined) setSharedActiveThreats(data.active_threats);
+                } catch (e) { console.error(e); }
               }} className="px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-widest text-slate-400 hover:bg-slate-800 transition-colors border border-slate-700">
                 Continue Chat
               </button>
@@ -433,9 +372,26 @@ export default function NudgeSystem({ demoMode, language }) {
                   Are you sure you want to report this account to cyber security monitoring systems?
                 </p>
                 
-                <form onSubmit={(e) => {
+                <form onSubmit={async (e) => {
                   e.preventDefault();
-                  if (reportDesc.trim()) setReportSuccess(true);
+                  if (reportDesc.trim()) {
+                    try {
+                      const res = await fetch('http://127.0.0.1:5000/api/dashboard/report-scam', {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json'
+                        }
+                      });
+                      const data = await res.json();
+                      if (data.success && data.scams_prevented) {
+                        setSharedScamsPrevented(data.scams_prevented);
+                      }
+                      setReportSuccess(true);
+                    } catch (err) {
+                      console.error("Error reporting scam:", err);
+                      setReportSuccess(true);
+                    }
+                  }
                 }} className="space-y-4">
                   <div>
                     <label className="block text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-2">Scam Type</label>
