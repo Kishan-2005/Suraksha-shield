@@ -137,63 +137,32 @@ export default function IdentityRiskAnalyzer({ demoMode, language }) {
       const formData = new FormData();
       formData.append("file", files[0]);
 
-      const res = await fetch("http://localhost:8002/api/v1/detect-image", {
+      const res = await fetch("http://127.0.0.1:5000/api/v1/detect-image", {
         method: "POST",
         body: formData,
       });
 
       if (!res.ok) {
-        console.warn("API failed, using mock data. Error:", res.status);
-        const isAuthentic = false;
-        const confidenceScore = 88;
-        const calculatedRisk = 88;
-
-        setResults({
-          isSafe: isAuthentic,
-          aiProb: calculatedRisk,
-          consistency: "Low Consistency",
-          reverseMatch: "Match Found ⚠️",
-          visualSuspicion: ["AI generation patterns detected", "Anomalous pixel distribution"],
-          riskScore: calculatedRisk
-        });
-
-        setScammerProfile({
-          imageUrl: images[0],
-          riskScore: calculatedRisk,
-          status: 'HIGH RISK'
-        });
-        setAnalysisState('COMPLETED');
-        return;
+        throw new Error("API request failed");
       }
 
-      let data;
-      try {
-        data = await res.json();
-      } catch (e) {
-        console.warn("Invalid JSON from API, using mock data.");
-        data = { classification: "AI-Generated", confidence_score: 88 };
-      }
+      const data = await res.json();
 
-      // Map FastAPI response → frontend format
-      const isAuthentic = data.classification === "Authentic";
-      const confidenceScore = data.confidence_score;
-      const calculatedRisk = Math.round(isAuthentic ? (100 - confidenceScore) : confidenceScore);
-
+      const isAuthentic = data.status === "SAFE";
+      
       setResults({
         isSafe: isAuthentic,
-        aiProb: calculatedRisk,
-        consistency: isAuthentic ? "High Consistency" : "Low Consistency",
-        reverseMatch: isAuthentic ? "No Matches" : "Match Found ⚠️",
-        visualSuspicion: isAuthentic 
-          ? ["No AI artifacts detected", "Authentic biometric signatures"] 
-          : ["AI generation patterns detected", "Anomalous pixel distribution"],
-        riskScore: calculatedRisk
+        aiProb: data.ai_generated_probability,
+        consistency: data.consistency,
+        reverseMatch: data.reverse_match,
+        visualSuspicion: data.indicators,
+        riskScore: data.fraud_risk
       });
 
       setScammerProfile({
         imageUrl: images[0],
-        riskScore: calculatedRisk,
-        status: isAuthentic ? 'SAFE' : 'HIGH RISK'
+        riskScore: data.fraud_risk,
+        status: data.status
       });
       setAnalysisState('COMPLETED');
 

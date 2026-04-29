@@ -9,6 +9,8 @@ import Register from './components/Register';
 import MainDashboard from './components/MainDashboard';
 import UserProfile from './components/UserProfile';
 import NumberRiskAnalyzer from './components/NumberRiskAnalyzer';
+import OfficerLogin from './components/OfficerLogin';
+import OfficerDashboard from './components/OfficerDashboard';
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -65,6 +67,14 @@ export default function App() {
   };
 
   const l = t[language];
+
+  const path = window.location.pathname;
+  if (path === '/officer-login') {
+    return <OfficerLogin onLogin={() => window.location.href = '/officer-dashboard'} />;
+  }
+  if (path === '/officer-dashboard') {
+    return <OfficerDashboard />;
+  }
 
   if (!isLoggedIn) {
     if (authScreen === 'login') {

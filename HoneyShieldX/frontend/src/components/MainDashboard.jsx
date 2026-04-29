@@ -7,6 +7,7 @@ import { useGlobalState } from '../context/GlobalStateContext';
 export default function MainDashboard({ demoMode, language }) {
   const { sharedScamsPrevented, setSharedScamsPrevented, sharedActiveThreats, setSharedActiveThreats } = useGlobalState();
   const [statsData, setStatsData] = useState({ incidents: [] });
+  const [mapThreats, setMapThreats] = useState([]);
 
   const t = {
     en: {
@@ -34,6 +35,17 @@ export default function MainDashboard({ demoMode, language }) {
             incidents: data.incidents
           });
         }
+
+        const mapRes = await fetch('http://127.0.0.1:5000/api/dashboard/threat-map');
+        if (mapRes.ok) {
+          const mapData = await mapRes.json();
+          setMapThreats(mapData.map(t => ({
+            id: t.id,
+            lat: t.latitude,
+            lng: t.longitude,
+            type: t.threat_type
+          })));
+        }
       } catch (err) {
         console.error("Backend not running. Using fallback UI.", err);
       }
@@ -51,14 +63,7 @@ export default function MainDashboard({ demoMode, language }) {
     { label: l.uptime, value: "99.9%", change: "Stable", icon: Activity, color: "cyan" }
   ];
 
-  const mockThreats = [
-    { id: 1, lat: 40.7128, lng: -74.0060, type: "Phishing Attempt" },
-    { id: 2, lat: 51.5074, lng: -0.1278, type: "Deepfake Audio" },
-    { id: 3, lat: 35.6762, lng: 139.6503, type: "Romance Scam" },
-    { id: 4, lat: -33.8688, lng: 151.2093, type: "Financial Extortion" },
-    { id: 5, lat: 19.0760, lng: 72.8777, type: "Spam Caller" }
-  ];
-  const activeThreats = sharedActiveThreats > 0 ? mockThreats.slice(0, Math.max(1, sharedActiveThreats)) : [];
+  const activeThreats = mapThreats.length > 0 ? mapThreats : [];
 
   return (
     <div className="space-y-6 animate-fade-in">

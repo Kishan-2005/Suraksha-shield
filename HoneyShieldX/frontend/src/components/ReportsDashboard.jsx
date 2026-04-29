@@ -4,6 +4,7 @@ import { Download, Share2, AlertTriangle, Shield, Heart, Clock, DollarSign, Acti
 export default function ReportsDashboard({ demoMode, language }) {
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState('idle');
 
   const t = {
     en: { title: "AI Scam Intelligence Report", subtitle: "Behavioral & Pattern-Based Detection Summary", genReport: "Generate Report", awaiting: "Awaiting Analysis", awaitingDesc: "Click 'Generate Report' or enable Demo Mode to proceed.", synth: "Synthesizing Telemetry...", threatAssessment: "Threat Assessment", highRisk: "HIGH RISK", aiSummary: "AI Summary", evidenceTimeline: "Evidence Timeline", detectedPatterns: "Detected Patterns", viewer: "Message Evidence Viewer", extracted: "Extracted", xai: "Explainable AI Reasoning" },
@@ -56,7 +57,30 @@ export default function ReportsDashboard({ demoMode, language }) {
         ],
         ai_explanation: "This report consolidates data from the Active Defense logs and EDI Engine. Cross-referenced telemetry indicates the target profile is actively attempting a financial extortion maneuver typical of transnational scam syndicates."
       });
+      
     }, 1500);
+  };
+
+  const submitToPolice = async () => {
+    if (!report) return;
+    setSubmitStatus('submitting');
+    
+    try {
+      await fetch('http://127.0.0.1:5000/api/reports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          report_type: 'chat',
+          risk_score: report.riskScore,
+          data: report
+        })
+      });
+      setSubmitStatus('success');
+      setTimeout(() => setSubmitStatus('idle'), 3000);
+    } catch(e) {
+      console.error(e);
+      setSubmitStatus('idle');
+    }
   };
 
   const handleDownload = () => {
@@ -83,6 +107,10 @@ export default function ReportsDashboard({ demoMode, language }) {
           </button>
           {report && (
             <>
+              <button onClick={submitToPolice} disabled={submitStatus !== 'idle'} className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider flex items-center gap-2 border transition-colors ${submitStatus === 'success' ? 'bg-emerald-600/20 text-emerald-400 border-emerald-500/30' : 'bg-red-600 hover:bg-red-500 text-white border-red-500/50 shadow-[0_0_10px_rgba(220,38,38,0.3)]'}`}>
+                {submitStatus === 'submitting' ? <ActivitySquare className="w-4 h-4 animate-spin" /> : submitStatus === 'success' ? <CheckCircle className="w-4 h-4" /> : <Shield className="w-4 h-4" />} 
+                {submitStatus === 'success' ? 'Submitted' : 'Submit to Police'}
+              </button>
               <button onClick={handleDownload} className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded flex items-center gap-2 border border-slate-700 transition-colors" title="Download Report PDF/TXT">
                 <Download className="w-4 h-4" />
               </button>

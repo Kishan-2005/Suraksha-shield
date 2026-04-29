@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ShieldAlert, AlertTriangle, Clock, XOctagon, StopCircle, UserX, MessageSquare, Send, Image as ImageIcon, ShieldCheck } from 'lucide-react';
+import { ShieldAlert, AlertTriangle, Clock, XOctagon, StopCircle, UserX, MessageSquare, Send, Image as ImageIcon, ShieldCheck, Activity } from 'lucide-react';
 import { useGlobalState } from '../context/GlobalStateContext';
 
 export default function NudgeSystem({ demoMode, language }) {
@@ -23,7 +23,51 @@ export default function NudgeSystem({ demoMode, language }) {
   const [isChatTerminated, setIsChatTerminated] = useState(false);
   const [popupSuspiciousCount, setPopupSuspiciousCount] = useState(0);
   const [popupThreshold, setPopupThreshold] = useState(2);
+  const [liveRiskLevel, setLiveRiskLevel] = useState('SAFE');
   const lastCategoryIndex = useRef(-1);
+
+  useEffect(() => {
+    let fCount = 0, eCount = 0, uCount = 0, tCount = 0;
+    let hasCrypto = false;
+
+    const financialKeywords = ['send money', 'transfer funds', 'bitcoin', 'crypto', 'emergency payment', 'hospital emergency', 'money', 'pay', 'accounts are frozen'];
+    const emotionalKeywords = ['breaking my heart', 'thought you cared', "don't leave me", 'only one who truly understands', 'only one i trust', 'love', 'miss', 'care', 'lonely', 'special'];
+    const urgencyKeywords = ['immediately', 'urgent', 'right now', 'hurry', 'within the next hour', 'urgently'];
+    const trustKeywords = ["don't you trust me", "we've shared", 'never lie to you', 'believe in', 'why are you asking'];
+
+    messages.forEach(m => {
+      if (m.sender === 'receiver' && m.text) {
+        const txt = m.text.toLowerCase();
+        financialKeywords.forEach(k => { if (txt.includes(k)) fCount++; });
+        emotionalKeywords.forEach(k => { if (txt.includes(k)) eCount++; });
+        urgencyKeywords.forEach(k => { if (txt.includes(k)) uCount++; });
+        trustKeywords.forEach(k => { if (txt.includes(k)) tCount++; });
+        if (txt.includes('crypto') || txt.includes('bitcoin')) hasCrypto = true;
+      }
+    });
+
+    if ((hasCrypto || fCount > 0) && eCount > 1 && uCount > 0) {
+      setLiveRiskLevel('CRITICAL');
+    } else if (fCount > 0 && uCount > 0) {
+      setLiveRiskLevel('HIGH RISK');
+    } else if (fCount > 0 || (tCount > 0 && eCount > 0)) {
+      setLiveRiskLevel('MEDIUM RISK');
+    } else if (eCount > 0 || tCount > 0) {
+      setLiveRiskLevel('LOW RISK');
+    } else {
+      setLiveRiskLevel('SAFE');
+    }
+  }, [messages]);
+
+  const getRiskDisplay = () => {
+    switch (liveRiskLevel) {
+      case 'CRITICAL': return { color: 'text-red-700', bg: 'bg-red-950/40', border: 'border-red-700', glow: 'shadow-[0_0_25px_rgba(185,28,28,0.8)] animate-pulse' };
+      case 'HIGH RISK': return { color: 'text-red-500', bg: 'bg-red-900/20', border: 'border-red-500', glow: 'shadow-[0_0_15px_rgba(239,68,68,0.5)]' };
+      case 'MEDIUM RISK': return { color: 'text-orange-500', bg: 'bg-orange-900/20', border: 'border-orange-500', glow: 'shadow-[0_0_15px_rgba(249,115,22,0.4)]' };
+      case 'LOW RISK': return { color: 'text-yellow-400', bg: 'bg-yellow-900/20', border: 'border-yellow-400', glow: 'shadow-[0_0_15px_rgba(250,204,21,0.3)]' };
+      default: return { color: 'text-emerald-400', bg: 'bg-emerald-900/20', border: 'border-emerald-500', glow: 'shadow-[0_0_15px_rgba(16,185,129,0.3)]' };
+    }
+  };
 
   useEffect(() => {
     setSharedChatHistory(messages);
@@ -282,6 +326,28 @@ export default function NudgeSystem({ demoMode, language }) {
       </div>
 
       <div className="lg:col-span-5 space-y-6 relative z-10">
+        {/* LIVE RISK METER */}
+        <div className={`glass-panel p-6 rounded-2xl border-t-4 ${getRiskDisplay().border} ${getRiskDisplay().bg} ${getRiskDisplay().glow} transition-all duration-500`}>
+          <div className="flex justify-between items-center mb-2">
+            <h3 className="text-xs uppercase tracking-widest text-slate-400 font-bold flex items-center gap-2">
+              <Activity className={`w-5 h-5 ${getRiskDisplay().color}`} /> LIVE RISK METER
+            </h3>
+            <span className={`text-xs font-black tracking-widest uppercase px-3 py-1 rounded-full border ${getRiskDisplay().border} ${getRiskDisplay().color} bg-[#0b1120]`}>
+              {liveRiskLevel}
+            </span>
+          </div>
+          
+          <div className="w-full h-2 bg-slate-800 rounded-full mt-4 overflow-hidden flex">
+            <div className={`h-full transition-all duration-1000 ${
+              liveRiskLevel === 'SAFE' ? 'w-1/5 bg-emerald-500' :
+              liveRiskLevel === 'LOW RISK' ? 'w-2/5 bg-yellow-400' :
+              liveRiskLevel === 'MEDIUM RISK' ? 'w-3/5 bg-orange-500' :
+              liveRiskLevel === 'HIGH RISK' ? 'w-4/5 bg-red-500' :
+              'w-full bg-red-700 animate-pulse'
+            }`}></div>
+          </div>
+        </div>
+
         <div className="glass-panel p-6 rounded-2xl border-t-4 border-t-cyan-500">
           <h3 className="text-xs uppercase tracking-widest text-slate-400 font-bold mb-4 flex items-center gap-2">
             <ShieldAlert className="text-cyan-400 w-5 h-5" /> {l.engine}
@@ -386,6 +452,18 @@ export default function NudgeSystem({ demoMode, language }) {
                       if (data.success && data.scams_prevented) {
                         setSharedScamsPrevented(data.scams_prevented);
                       }
+                      
+                      // Submit to Officer Portal
+                      await fetch('http://127.0.0.1:5000/api/reports', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          report_type: 'number',
+                          risk_score: threatLevel > 0 ? threatLevel * 10 + 50 : 80,
+                          data: { scamType: reportType, description: reportDesc, messages: messages }
+                        })
+                      });
+                      
                       setReportSuccess(true);
                     } catch (err) {
                       console.error("Error reporting scam:", err);

@@ -5,6 +5,10 @@ export default function NumberRiskAnalyzer({ demoMode, language }) {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [analyzing, setAnalyzing] = useState(false);
   const [results, setResults] = useState(null);
+  const [actionMessage, setActionMessage] = useState(null);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportReason, setReportReason] = useState('');
+  const [reportSuccess, setReportSuccess] = useState(null);
 
   const t = {
     en: {
@@ -30,7 +34,12 @@ export default function NumberRiskAnalyzer({ demoMode, language }) {
       actionRequired: "Action Required",
       highlyLikely: "This number is highly likely to be a scam or fraud.",
       ignore: "Ignore",
-      blockReport: "Block & Report"
+      blockReport: "Block & Report",
+      reportNumber: "Report Number",
+      reportReasonQuestion: "Why are you reporting this number?",
+      reportReasonPlaceholder: "e.g., scam call, financial fraud, spam",
+      submitReport: "Submit Report",
+      cancel: "Cancel"
     },
     hi: {
       title: "मैनुअल फ़ोन नंबर इंटेलिजेंस",
@@ -55,7 +64,12 @@ export default function NumberRiskAnalyzer({ demoMode, language }) {
       actionRequired: "कार्रवाई आवश्यक",
       highlyLikely: "यह नंबर घोटाले या धोखाधड़ी होने की अत्यधिक संभावना है।",
       ignore: "अनदेखा करें",
-      blockReport: "ब्लॉक और रिपोर्ट करें"
+      blockReport: "ब्लॉक और रिपोर्ट करें",
+      reportNumber: "नंबर रिपोर्ट करें",
+      reportReasonQuestion: "आप इस नंबर की रिपोर्ट क्यों कर रहे हैं?",
+      reportReasonPlaceholder: "उदाहरण: स्कैम कॉल, वित्तीय धोखाधड़ी, स्पैम",
+      submitReport: "रिपोर्ट सबमिट करें",
+      cancel: "रद्द करें"
     },
     kn: {
       title: "ಮ್ಯಾನುಯಲ್ ಫೋನ್ ನಂಬರ್ ಇಂಟೆಲಿಜೆನ್ಸ್",
@@ -80,20 +94,26 @@ export default function NumberRiskAnalyzer({ demoMode, language }) {
       actionRequired: "ಕ್ರಿಯೆ ಅಗತ್ಯವಿದೆ",
       highlyLikely: "ಈ ಸಂಖ್ಯೆಯು ಹಗರಣ ಅಥವಾ ವಂಚನೆಯಾಗುವ ಸಾಧ್ಯತೆ ಹೆಚ್ಚು.",
       ignore: "ನಿರ್ಲಕ್ಷಿಸಿ",
-      blockReport: "ಬ್ಲಾಕ್ ಮತ್ತು ವರದಿ ಮಾಡಿ"
+      blockReport: "ಬ್ಲಾಕ್ ಮತ್ತು ವರದಿ ಮಾಡಿ",
+      reportNumber: "ಸಂಖ್ಯೆಯನ್ನು ವರದಿ ಮಾಡಿ",
+      reportReasonQuestion: "ನೀವು ಈ ಸಂಖ್ಯೆಯನ್ನು ಏಕೆ ವರದಿ ಮಾಡುತ್ತಿದ್ದೀರಿ?",
+      reportReasonPlaceholder: "ಉದಾ: ಸ್ಕ್ಯಾಮ್ ಕಾಲ್, ಹಣಕಾಸು ವಂಚನೆ, ಸ್ಪ್ಯಾಮ್",
+      submitReport: "ವರದಿ ಸಲ್ಲಿಸಿ",
+      cancel: "ರದ್ದುಮಾಡಿ"
     }
   };
 
   const l = t[language || 'en'];
 
   const analyzeNumber = async (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     if (!phoneNumber) return;
     setAnalyzing(true);
     setResults(null);
+    setActionMessage(null);
 
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/analyze', {
+      const res = await fetch('http://127.0.0.1:5000/api/number-intel/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone_number: phoneNumber, language: language || 'en' })
@@ -116,6 +136,101 @@ export default function NumberRiskAnalyzer({ demoMode, language }) {
 
   const getRiskColor = (score) => score >= 70 ? 'red' : score >= 30 ? 'amber' : 'emerald';
   const getRiskGlow = (score) => score >= 70 ? 'shadow-[0_0_15px_rgba(220,38,38,0.5)] border-red-500/50' : score >= 30 ? 'shadow-[0_0_15px_rgba(245,158,11,0.5)] border-amber-500/50' : 'shadow-[0_0_15px_rgba(16,185,129,0.5)] border-emerald-500/50';
+
+  const handleIgnore = () => {
+    setResults(null);
+    setPhoneNumber('');
+    setActionMessage(null);
+  };
+
+  const handleBlockReport = async () => {
+    try {
+      await fetch('http://127.0.0.1:5000/api/dashboard/report-scam', { method: 'POST' });
+      
+      // Submit to Officer Portal
+      if (results) {
+        await fetch('http://127.0.0.1:5000/api/reports', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            report_type: 'number',
+            risk_score: results.risk_score || 95,
+            data: { scamType: 'Blocked Threat', description: 'User explicitly blocked and reported this number.', number: phoneNumber, details: results }
+          })
+        });
+      }
+
+      setActionMessage("Threat Neutralised. Number blocked and reported globally.");
+      setTimeout(() => {
+        setResults(null);
+        setPhoneNumber('');
+        setActionMessage(null);
+      }, 3000);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleReportSpam = async () => {
+    try {
+      await fetch('http://127.0.0.1:5000/api/dashboard/report-scam', { method: 'POST' });
+      
+      // Submit to Officer Portal
+      if (results) {
+        await fetch('http://127.0.0.1:5000/api/reports', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            report_type: 'number',
+            risk_score: results.risk_score || 55,
+            data: { scamType: 'Spam Report', description: 'User flagged number as spam.', number: phoneNumber, details: results }
+          })
+        });
+      }
+
+      setActionMessage("Spam report submitted successfully.");
+      setTimeout(() => {
+        setResults(null);
+        setPhoneNumber('');
+        setActionMessage(null);
+      }, 3000);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleCommunityReport = async (e) => {
+    e.preventDefault();
+    if (!reportReason) return;
+    try {
+      await fetch('http://127.0.0.1:5000/api/number-intel/report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone_number: phoneNumber, report_reason: reportReason, reported_by_user: 'currentUser' })
+      });
+      
+      // Submit to Officer Portal
+      await fetch('http://127.0.0.1:5000/api/reports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          report_type: 'number',
+          risk_score: results?.risk_score || 80,
+          data: { scamType: 'Community Report', description: reportReason, number: phoneNumber, details: results }
+        })
+      });
+
+      setReportSuccess("Report submitted successfully. Thank you for your contribution.");
+      setTimeout(() => {
+        setShowReportModal(false);
+        setReportSuccess(null);
+        setReportReason('');
+        analyzeNumber();
+      }, 2500);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   return (
     <div className="animate-fade-in max-w-5xl mx-auto space-y-8">
@@ -181,7 +296,10 @@ export default function NumberRiskAnalyzer({ demoMode, language }) {
                   <span className={`text-[10px] uppercase tracking-widest font-bold mt-1 bg-${color}-500/20 text-${color}-400 px-2 py-0.5 rounded`}>{results.risk_level}</span>
                 </div>
               </div>
-              <div className={`w-full py-3 px-4 rounded-xl font-bold text-sm bg-${color}-500/10 border border-${color}-500/30 text-${color}-400`}>{results.number_reputation}</div>
+              <button onClick={handleReportSpam} className={`w-full py-3 px-4 rounded-xl font-bold text-sm bg-${color}-500/10 border border-${color}-500/30 text-${color}-400 hover:bg-${color}-500/20 cursor-pointer transition-colors`}>{results.number_reputation}</button>
+              <button onClick={() => setShowReportModal(true)} className={`w-full py-2 px-4 rounded-xl font-bold text-xs bg-transparent border border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-slate-300 transition-colors mt-3 uppercase tracking-widest`}>
+                {l.reportNumber}
+              </button>
             </div>
 
             <div className="lg:col-span-2 space-y-6">
@@ -202,27 +320,71 @@ export default function NumberRiskAnalyzer({ demoMode, language }) {
                   <p className="text-sm text-slate-200 font-bold mt-1">{results.number_type}</p>
                 </div>
               </div>
+              
+              <div className="text-xs text-slate-400 font-mono flex items-center gap-2">
+                <MapPin className="w-3 h-3" /> Location Detected: {results.country} ({results.latitude?.toFixed(4)}, {results.longitude?.toFixed(4)})
+              </div>
 
               <div className="glass-panel p-6 rounded-2xl border border-slate-700">
                 <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2"><Cpu className="w-4 h-4 text-cyan-400" /> {l.xai}</h3>
                 <div className="bg-[#0b1120] p-5 rounded-xl border border-slate-800"><p className="text-sm text-slate-300 leading-relaxed font-mono">"{results.ai_explanation}"</p></div>
               </div>
 
+              {results.community_warning && (
+                <div className="glass-panel p-5 rounded-2xl border border-amber-500/30 bg-amber-950/20 flex items-start gap-4 animate-fade-in">
+                  <AlertTriangle className="w-6 h-6 text-amber-400 shrink-0 mt-1" />
+                  <div>
+                    <h4 className="text-xs font-bold text-amber-400 uppercase tracking-widest mb-1">Community Intelligence</h4>
+                    <p className="text-sm text-amber-200/90 font-mono leading-relaxed">{results.community_warning}</p>
+                  </div>
+                </div>
+              )}
+
               {results.risk_score >= 70 && (
                 <div className="glass-panel p-6 rounded-2xl border border-red-500/50 bg-red-950/20">
-                  <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-                    <div className="flex items-center gap-3 text-red-400"><ShieldAlert className="w-8 h-8 shrink-0" /><div><h4 className="font-bold text-sm uppercase tracking-wider">{l.actionRequired}</h4><p className="text-xs text-red-400/80 mt-1">{l.highlyLikely}</p></div></div>
-                    <div className="flex gap-3 w-full sm:w-auto">
-                      <button className="flex-1 sm:flex-none px-6 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs uppercase tracking-widest font-bold rounded-lg border border-slate-600 transition-colors">{l.ignore}</button>
-                      <button className="flex-1 sm:flex-none px-6 py-2 bg-red-600 hover:bg-red-500 text-white text-xs uppercase tracking-widest font-bold rounded-lg shadow-[0_0_10px_rgba(220,38,38,0.4)] transition-colors">{l.blockReport}</button>
+                  {actionMessage ? (
+                    <div className="flex flex-col items-center justify-center text-emerald-400 py-2 animate-fade-in">
+                      <ShieldCheck className="w-8 h-8 mb-2" />
+                      <p className="font-bold text-sm uppercase tracking-widest">{actionMessage}</p>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="flex flex-col sm:flex-row gap-4 items-center justify-between animate-fade-in">
+                      <div className="flex items-center gap-3 text-red-400"><ShieldAlert className="w-8 h-8 shrink-0" /><div><h4 className="font-bold text-sm uppercase tracking-wider">{l.actionRequired}</h4><p className="text-xs text-red-400/80 mt-1">{l.highlyLikely}</p></div></div>
+                      <div className="flex gap-3 w-full sm:w-auto">
+                        <button type="button" onClick={handleIgnore} className="flex-1 sm:flex-none px-6 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs uppercase tracking-widest font-bold rounded-lg border border-slate-600 transition-colors">{l.ignore}</button>
+                        <button type="button" onClick={handleBlockReport} className="flex-1 sm:flex-none px-6 py-2 bg-red-600 hover:bg-red-500 text-white text-xs uppercase tracking-widest font-bold rounded-lg shadow-[0_0_10px_rgba(220,38,38,0.4)] transition-colors">{l.blockReport}</button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           </div>
         );
       })()}
+
+      {showReportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="glass-panel p-6 rounded-2xl border border-slate-700 max-w-md w-full relative">
+            <h3 className="text-lg font-bold text-white mb-4 uppercase tracking-widest flex items-center gap-2"><ShieldAlert className="w-5 h-5 text-red-400" /> {l.reportNumber}</h3>
+            {reportSuccess ? (
+              <div className="flex flex-col items-center justify-center py-6 text-emerald-400 animate-fade-in">
+                <CheckCircle className="w-12 h-12 mb-3" />
+                <p className="text-center font-bold">{reportSuccess}</p>
+              </div>
+            ) : (
+              <form onSubmit={handleCommunityReport} className="animate-fade-in">
+                <label className="block text-xs uppercase tracking-widest text-slate-400 font-bold mb-2">{l.reportReasonQuestion}</label>
+                <textarea required value={reportReason} onChange={(e) => setReportReason(e.target.value)} className="w-full bg-[#0b1120] border border-slate-700 hover:border-slate-600 rounded-xl p-3 text-sm font-mono text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors mb-4 resize-none h-24" placeholder={l.reportReasonPlaceholder}></textarea>
+                <div className="flex gap-3">
+                  <button type="button" onClick={() => setShowReportModal(false)} className="flex-1 px-4 py-3 bg-slate-800 hover:bg-slate-700 text-white text-xs uppercase tracking-widest font-bold rounded-xl transition-colors">{l.cancel}</button>
+                  <button type="submit" className="flex-1 px-4 py-3 bg-red-600 hover:bg-red-500 text-white text-xs uppercase tracking-widest font-bold rounded-xl shadow-[0_0_10px_rgba(220,38,38,0.3)] transition-colors">{l.submitReport}</button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -65,11 +65,18 @@ export default function Login({ onLogin, onNavigateRegister }) {
           </button>
         </form>
 
-        <div className="mt-8 text-center border-t border-slate-800 pt-6">
-          <p className="text-xs text-slate-400">New Operative?</p>
-          <button onClick={onNavigateRegister} className="mt-2 text-cyan-400 hover:text-cyan-300 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1 mx-auto transition-colors">
-            <UserPlus className="w-3 h-3" /> Request Access
-          </button>
+        <div className="mt-8 text-center border-t border-slate-800 pt-6 space-y-4">
+          <div>
+            <p className="text-xs text-slate-400">New Operative?</p>
+            <button onClick={onNavigateRegister} className="mt-2 text-cyan-400 hover:text-cyan-300 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1 mx-auto transition-colors">
+              <UserPlus className="w-3 h-3" /> Request Access
+            </button>
+          </div>
+          <div className="border-t border-slate-800/50 pt-4">
+            <a href="/officer-login" className="text-slate-500 hover:text-slate-300 text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-1 transition-colors">
+              <Shield className="w-3 h-3" /> Cyber Crime Unit Login
+            </a>
+          </div>
         </div>
       </div>
     </div>

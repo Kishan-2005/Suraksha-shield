@@ -1,7 +1,24 @@
 import React, { useEffect, useState } from 'react';
-import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
 import 'leaflet/dist/leaflet.css';
 
+const MapController = () => {
+  const map = useMap();
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const lat = params.get('lat');
+    const lng = params.get('lng');
+    if (lat && lng) {
+      map.flyTo([parseFloat(lat), parseFloat(lng)], 5, {
+        duration: 2.5
+      });
+      // Optionally remove params from URL without refreshing so it doesn't fly again on subsequent re-renders
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, [map]);
+  return null;
+};
 const GlobalThreatMap = ({ threats = [] }) => {
   const [map, setMap] = useState(null);
 
@@ -27,6 +44,7 @@ const GlobalThreatMap = ({ threats = [] }) => {
           url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
           attribution='&copy; <a href="https://carto.com/">CARTO</a>'
         />
+        <MapController />
         
         {threats.map((t) => (
           <CircleMarker 
