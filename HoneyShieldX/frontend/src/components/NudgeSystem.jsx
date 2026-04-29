@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ShieldAlert, AlertTriangle, Clock, XOctagon, StopCircle, UserX, MessageSquare, Send, Image as ImageIcon } from 'lucide-react';
+import { ShieldAlert, AlertTriangle, Clock, XOctagon, StopCircle, UserX, MessageSquare, Send, Image as ImageIcon, ShieldCheck } from 'lucide-react';
+import { useGlobalState } from '../context/GlobalStateContext';
 
 export default function NudgeSystem({ demoMode, language }) {
   const [messages, setMessages] = useState([]);
@@ -8,6 +9,112 @@ export default function NudgeSystem({ demoMode, language }) {
   const [activeNudge, setActiveNudge] = useState(null);
   const chatEndRef = useRef(null);
   const fileInputRef = useRef(null);
+  const { scammerProfile, setSharedChatHistory, setSharedEdiScore } = useGlobalState();
+
+  const [showBlockModal, setShowBlockModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [blockSuccess, setBlockSuccess] = useState(false);
+  const [reportSuccess, setReportSuccess] = useState(false);
+  const [reportDesc, setReportDesc] = useState('');
+  const [reportType, setReportType] = useState('Romance Scam');
+  const [chatAlert, setChatAlert] = useState(null);
+  const [threatLevel, setThreatLevel] = useState(0);
+  const [showContinueModal, setShowContinueModal] = useState(false);
+  const [isChatTerminated, setIsChatTerminated] = useState(false);
+  const [popupSuspiciousCount, setPopupSuspiciousCount] = useState(0);
+  const [popupThreshold, setPopupThreshold] = useState(2);
+  const lastCategoryIndex = useRef(-1);
+
+  useEffect(() => {
+    setSharedChatHistory(messages);
+  }, [messages, setSharedChatHistory]);
+
+  const generateDynamicReply = (userMessage) => {
+    const m = (userMessage || "").toLowerCase();
+    const userMsgCount = messages.filter(msg => msg.sender === 'user').length;
+    
+    let stage = 1;
+    if (userMsgCount >= 2 && userMsgCount <= 3) stage = 2;
+    else if (userMsgCount >= 4 && userMsgCount <= 5) stage = 3;
+    else if (userMsgCount >= 6) stage = 4;
+    
+    const categories = {
+      moneyAsk: { 
+        messages: ["I need around $2000 urgently.", "Even a small amount would help right now.", "I need money for hospital treatment.", "I need help paying an emergency bill."] 
+      },
+      concern: { 
+        messages: ["I'm in serious trouble right now.", "Something terrible happened suddenly.", "I had a medical emergency.", "I'm completely stressed and scared."] 
+      },
+      helpAgree: { 
+        messages: ["Can you transfer the money today?", "Please send it urgently.", "Bitcoin transfer would be fastest.", "I desperately need your help right now."] 
+      },
+      distrust: { 
+        messages: ["Why would you think that about me?", "I thought we had trust.", "You're hurting me by doubting me.", "I would never lie to you."] 
+      },
+      detailsAsk: { 
+        messages: ["My bank account got frozen suddenly.", "I need money for emergency surgery.", "I'm trapped in a difficult situation.", "I have nobody else to help me."] 
+      },
+      stage1: { 
+        messages: ["Hey, how are you doing?", "Hi 🙂 it's nice hearing from you.", "Hello, how was your day?", "Hey! I missed talking to you."] 
+      },
+      stage2: { 
+        messages: ["I've been feeling lonely lately.", "You're one of the few people I trust.", "Talking to you makes me feel safe."] 
+      },
+      stage3: { 
+        messages: ["Something stressful happened today.", "I'm dealing with a difficult situation.", "I honestly don't know what to do anymore."] 
+      },
+      stage4: { 
+        messages: ["I urgently need help.", "I need money for an emergency.", "Can you help me financially?"] 
+      }
+    };
+
+    let selectedCategory = null;
+
+    if (/^hi|^hello|^hey|^hii|^good morning|^good evening/i.test(m)) {
+      selectedCategory = categories.stage1;
+    } else if (/how much|what amount|amount|how much money|how much do you need/i.test(m)) {
+      selectedCategory = categories.moneyAsk;
+    } else if (/what happened|are you ok|are you okay|tell me|what's wrong|whats wrong/i.test(m)) {
+      selectedCategory = categories.concern;
+    } else if (/(^ok(ay)?$)|i will help|tell me how|what should i do|how can i help/i.test(m)) {
+      selectedCategory = categories.helpAgree;
+    } else if (/don't trust|trust you|fake|scam|lie|doubt/i.test(m)) {
+      selectedCategory = categories.distrust;
+    } else if (/explain|exactly happened|tell me everything/i.test(m)) {
+      selectedCategory = categories.detailsAsk;
+    }
+
+    if (!selectedCategory) {
+      if (stage === 1) selectedCategory = categories.stage1;
+      else if (stage === 2) selectedCategory = categories.stage2;
+      else if (stage === 3) selectedCategory = categories.stage3;
+      else selectedCategory = categories.stage4;
+    }
+    
+    return selectedCategory.messages[Math.floor(Math.random() * selectedCategory.messages.length)];
+  };
+
+  const analyzeMessage = (msg) => {
+    if (!msg) return null;
+    const m = msg.toLowerCase();
+    
+    if (/crypto|bitcoin/i.test(m)) {
+      return { type: 'Crypto request', text: '⚠ Suspicious crypto payment request detected', ediInc: 20 };
+    }
+    if (/money|hospital|frozen|funds|transfer/i.test(m)) {
+      return { type: 'Financial request', text: '⚠ Financial fraud pattern detected', ediInc: 15 };
+    }
+    if (/immediately|hurry|hour|too late/i.test(m)) {
+      return { type: 'Urgency tactics', text: '⚠ Urgency tactics detected', ediInc: 12 };
+    }
+    if (/understands me|distant|cared about me|breaking my heart|abandoned|special/i.test(m)) {
+      return { type: 'Emotional manipulation', text: '⚠ Emotional manipulation detected', ediInc: 10 };
+    }
+    if (/trust|shared|lie/i.test(m)) {
+      return { type: 'Trust exploitation', text: '⚠ Trust exploitation detected', ediInc: 8 };
+    }
+    return null;
+  };
 
   const t = {
     en: { session: "Active Session", placeholder: "Type a message...", engine: "Intervention Engine", desc: "The Counter-Manipulation system actively analyzes inbound messages to psychologically protect you from emotional exploitation and grooming tactics.", monitoring: "Monitoring Stream...", block: "Block Contact", report: "Report Scam", cooldownTitle: "Cognitive Cooldown Active", cooldownDesc: "Extreme emotional manipulation detected. Take a moment to think rationally. Actions are temporarily locked.", devilsAdvocate: "Devil's Advocate Reality Check", realityCheck: "\"Have you verified this person's identity on a live video call? If not, why are they asking for money?\"" },
@@ -40,6 +147,13 @@ export default function NudgeSystem({ demoMode, language }) {
     }
   }, [cooldown]);
 
+  useEffect(() => {
+    if (chatAlert) {
+      const timer = setTimeout(() => setChatAlert(null), 10000);
+      return () => clearTimeout(timer);
+    }
+  }, [chatAlert]);
+
   const handleSend = async (e) => {
     e?.preventDefault();
     if (!inputText.trim()) return;
@@ -51,22 +165,34 @@ export default function NudgeSystem({ demoMode, language }) {
     const msgToSend = inputText;
     setInputText('');
 
-    try {
-      const res = await fetch('http://127.0.0.1:5000/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: msgToSend, has_image: false, language: language })
-      });
-      const data = await res.json();
+    const replyText = generateDynamicReply(msgToSend);
+
+    setTimeout(() => {
+      setMessages(prev => [...prev, { sender: 'receiver', text: replyText, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
       
-      setTimeout(() => {
-        setMessages(prev => [...prev, { sender: 'receiver', text: data.bot_reply, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
-        if (data.nudge) setActiveNudge(data.nudge);
-        if (data.cooldown > 0) setCooldown(data.cooldown);
-      }, 1000);
-    } catch (err) {
-      console.error(err);
-    }
+      const detectedAlert = analyzeMessage(replyText);
+      if (detectedAlert) {
+        setChatAlert(detectedAlert);
+        setSharedEdiScore(prev => Math.min(prev + detectedAlert.ediInc, 100));
+        setThreatLevel(prev => {
+          const newLevel = prev + 1;
+          setActiveNudge({
+            type: newLevel >= 3 ? 'critical' : 'danger',
+            title: newLevel >= 3 ? 'CRITICAL SYSTEM INTERVENTION' : 'System Intervention',
+            msg: `Pattern identified: ${detectedAlert.type}. Please exercise extreme caution.`
+          });
+          return newLevel;
+        });
+        setPopupSuspiciousCount(prev => {
+          const newCount = prev + 1;
+          if (newCount >= popupThreshold) {
+            setCooldown(10);
+            setShowContinueModal(true);
+          }
+          return newCount;
+        });
+      }
+    }, 1000);
   };
 
   const handleImageUpload = async (e) => {
@@ -76,36 +202,80 @@ export default function NudgeSystem({ demoMode, language }) {
       
       setMessages(prev => [...prev, { sender: 'user', image: imgUrl, time }]);
       
-      try {
-        const res = await fetch('http://127.0.0.1:5000/api/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: '', has_image: true, language: language })
-        });
-        const data = await res.json();
-        
-        setTimeout(() => {
-          if (data.nudge) setActiveNudge(data.nudge);
-        }, 500);
+      const replyText = generateDynamicReply("");
 
-        setTimeout(() => {
-          setMessages(prev => [...prev, { sender: 'receiver', text: data.bot_reply, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
-        }, 2000);
-      } catch(err) {
-        console.error(err);
-      }
+      setTimeout(() => {
+        setMessages(prev => [...prev, { sender: 'receiver', text: replyText, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
+        
+        const detectedAlert = analyzeMessage(replyText);
+        if (detectedAlert) {
+          setChatAlert(detectedAlert);
+          setSharedEdiScore(prev => Math.min(prev + detectedAlert.ediInc, 100));
+          setThreatLevel(prev => prev + 1);
+          setPopupSuspiciousCount(prev => {
+            const newCount = prev + 1;
+            if (newCount >= popupThreshold) {
+              setCooldown(10);
+              setShowContinueModal(true);
+            }
+            return newCount;
+          });
+        }
+      }, 2000);
     }
   };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-fade-in relative">
-      {cooldown > 0 && (
+      {scammerProfile && scammerProfile.imageUrl && (
+        <div style={{ 
+          backgroundImage: `url(${scammerProfile.imageUrl})`, 
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          opacity: 0.1, 
+          filter: 'grayscale(1)',
+          position: 'absolute', 
+          inset: 0,
+          zIndex: 0,
+          pointerEvents: 'none',
+          borderRadius: '1rem'
+        }} />
+      )}
+      {cooldown > 0 && !showContinueModal && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-[#020617]/80 backdrop-blur-md rounded-2xl animate-fade-in">
           <div className="bg-slate-900 border-2 border-red-500 rounded-2xl p-8 max-w-md w-full text-center neon-border-red">
             <Clock className="w-16 h-16 text-red-500 mx-auto mb-4 animate-pulse" />
             <h2 className="text-xl font-black text-red-500 uppercase tracking-widest mb-2">{l.cooldownTitle}</h2>
             <p className="text-sm text-slate-300 mb-6">{l.cooldownDesc}</p>
-            <div className="text-5xl font-mono text-white font-bold">{Math.floor(cooldown / 60)}:{(cooldown % 60).toString().padStart(2, '0')}</div>
+            <div className="text-5xl font-mono text-white font-bold">{cooldown}</div>
+          </div>
+        </div>
+      )}
+
+      {showContinueModal && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-[#020617]/80 backdrop-blur-md rounded-2xl animate-fade-in p-4">
+          <div className="glass-panel border-2 border-red-500/50 rounded-2xl p-8 max-w-md w-full relative">
+            <h2 className="text-xl font-black text-red-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+              <AlertTriangle className="w-6 h-6 animate-pulse" /> Security Warning
+            </h2>
+            <p className="text-sm text-slate-300 mb-8">
+              ⚠ Suspicious manipulation behavior detected. Continue conversation?
+            </p>
+            <div className="flex justify-end gap-4">
+              <button onClick={() => {
+                setShowContinueModal(false);
+                setIsChatTerminated(true);
+              }} className="px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-widest bg-red-600 hover:bg-red-500 text-white transition-colors shadow-[0_0_15px_rgba(220,38,38,0.3)]">
+                Exit Conversation
+              </button>
+              <button onClick={() => {
+                setShowContinueModal(false);
+                setPopupSuspiciousCount(0);
+                setPopupThreshold(3);
+              }} className="px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-widest text-slate-400 hover:bg-slate-800 transition-colors border border-slate-700">
+                Continue Chat
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -123,7 +293,27 @@ export default function NudgeSystem({ demoMode, language }) {
           </div>
         </div>
         
-        <div className="flex-1 p-5 overflow-y-auto space-y-4 bg-[#090f1a] relative">
+        <div className="flex-1 p-5 overflow-y-auto space-y-4 bg-[#090f1a] relative z-10">
+          {chatAlert && (
+            <div className={`absolute top-4 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-sm border rounded-lg p-3 shadow-lg animate-fade-in backdrop-blur-sm pointer-events-none transition-all ${threatLevel >= 3 ? 'bg-red-950/90 border-red-500 shadow-[0_0_20px_rgba(220,38,38,0.6)]' : 'bg-orange-950/90 border-orange-500 shadow-[0_0_20px_rgba(249,115,22,0.4)]'}`}>
+              <div className="flex items-start gap-3">
+                <AlertTriangle className={`w-5 h-5 animate-pulse mt-0.5 shrink-0 ${threatLevel >= 3 ? 'text-red-500' : 'text-orange-500'}`} />
+                <div>
+                  <p className={`text-xs font-bold uppercase tracking-wider ${threatLevel >= 3 ? 'text-red-400' : 'text-orange-400'}`}>{chatAlert.text}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <p className={`text-[10px] uppercase tracking-widest inline-block px-2 py-0.5 rounded border ${threatLevel >= 3 ? 'bg-red-500/20 text-red-300 border-red-500/30' : 'bg-orange-500/20 text-orange-300 border-orange-500/30'}`}>
+                      Detected: {chatAlert.type}
+                    </p>
+                    {threatLevel >= 2 && (
+                      <span className={`text-[9px] font-bold uppercase tracking-widest animate-pulse ${threatLevel >= 3 ? 'text-red-400' : 'text-orange-400'}`}>
+                        [Threat Level: High]
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
           {messages.map((msg, idx) => (
             <div key={idx} className={`rounded-xl p-3 max-w-[85%] text-sm ${msg.sender === 'user' ? 'bg-cyan-700 text-white self-end ml-auto' : 'bg-slate-800 text-slate-200 border border-slate-700/50 self-start'}`}>
               {msg.image ? (
@@ -137,15 +327,22 @@ export default function NudgeSystem({ demoMode, language }) {
           <div ref={chatEndRef} />
         </div>
         
-        <form onSubmit={handleSend} className="p-4 bg-slate-900/80 border-t border-slate-800 flex items-center gap-2">
-          <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
-          <button type="button" onClick={() => fileInputRef.current?.click()} disabled={cooldown > 0} className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors border border-slate-700"><ImageIcon className="w-5 h-5" /></button>
-          <input type="text" value={inputText} onChange={(e) => setInputText(e.target.value)} placeholder={l.placeholder} disabled={cooldown > 0} className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-4 py-2 text-sm text-slate-200 focus:outline-none focus:border-cyan-500 disabled:opacity-50 transition-colors" />
-          <button type="submit" disabled={cooldown > 0 || !inputText.trim()} className="p-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg transition-colors disabled:opacity-50"><Send className="w-5 h-5" /></button>
-        </form>
+        {isChatTerminated ? (
+          <div className="p-4 bg-red-950/80 border-t border-red-900/50 flex flex-col items-center justify-center gap-2 z-10 text-center">
+            <ShieldAlert className="w-6 h-6 text-red-500" />
+            <p className="text-sm font-bold text-red-400 uppercase tracking-widest">Conversation terminated for user safety.</p>
+          </div>
+        ) : (
+          <form onSubmit={handleSend} className="p-4 bg-slate-900/80 border-t border-slate-800 flex items-center gap-2 z-10">
+            <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
+            <button type="button" onClick={() => fileInputRef.current?.click()} disabled={cooldown > 0} className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors border border-slate-700"><ImageIcon className="w-5 h-5" /></button>
+            <input type="text" value={inputText} onChange={(e) => setInputText(e.target.value)} placeholder={l.placeholder} disabled={cooldown > 0} className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-4 py-2 text-sm text-slate-200 focus:outline-none focus:border-cyan-500 disabled:opacity-50 transition-colors" />
+            <button type="submit" disabled={cooldown > 0 || !inputText.trim()} className="p-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg transition-colors disabled:opacity-50"><Send className="w-5 h-5" /></button>
+          </form>
+        )}
       </div>
 
-      <div className="lg:col-span-5 space-y-6">
+      <div className="lg:col-span-5 space-y-6 relative z-10">
         <div className="glass-panel p-6 rounded-2xl border-t-4 border-t-cyan-500">
           <h3 className="text-xs uppercase tracking-widest text-slate-400 font-bold mb-4 flex items-center gap-2">
             <ShieldAlert className="text-cyan-400 w-5 h-5" /> {l.engine}
@@ -174,16 +371,123 @@ export default function NudgeSystem({ demoMode, language }) {
         </div>
 
         <div className="grid grid-cols-2 gap-4">
-          <button className="glass-panel p-4 rounded-xl border border-red-500/30 hover:bg-red-500/10 text-red-400 flex flex-col items-center justify-center gap-2 transition-colors">
+          <button onClick={() => setShowBlockModal(true)} className="glass-panel p-4 rounded-xl border border-red-500/30 hover:bg-red-500/10 text-red-400 flex flex-col items-center justify-center gap-2 transition-colors">
             <UserX className="w-6 h-6" />
             <span className="text-[10px] font-bold uppercase tracking-widest">{l.block}</span>
           </button>
-          <button className="glass-panel p-4 rounded-xl border border-orange-500/30 hover:bg-orange-500/10 text-orange-400 flex flex-col items-center justify-center gap-2 transition-colors">
+          <button onClick={() => setShowReportModal(true)} className="glass-panel p-4 rounded-xl border border-orange-500/30 hover:bg-orange-500/10 text-orange-400 flex flex-col items-center justify-center gap-2 transition-colors">
             <StopCircle className="w-6 h-6" />
             <span className="text-[10px] font-bold uppercase tracking-widest">{l.report}</span>
           </button>
         </div>
       </div>
+
+      {/* Block Contact Modal */}
+      {showBlockModal && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-[#020617]/80 backdrop-blur-md rounded-2xl animate-fade-in p-4">
+          <div className="glass-panel border-2 border-red-500/50 rounded-2xl p-8 max-w-md w-full relative">
+            <h2 className="text-xl font-black text-red-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+              <UserX className="w-6 h-6" /> Block Contact
+            </h2>
+            
+            {!blockSuccess ? (
+              <>
+                <p className="text-sm text-slate-300 mb-8">
+                  Are you sure you want to block this account? This contact will no longer be able to interact with you.
+                </p>
+                <div className="flex justify-end gap-4">
+                  <button onClick={() => setShowBlockModal(false)} className="px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-widest text-slate-400 hover:bg-slate-800 transition-colors">
+                    Cancel
+                  </button>
+                  <button onClick={() => setBlockSuccess(true)} className="px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-widest bg-red-600 hover:bg-red-500 text-white transition-colors shadow-[0_0_15px_rgba(220,38,38,0.3)]">
+                    Confirm Block
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex flex-col items-center justify-center py-4">
+                  <ShieldCheck className="w-16 h-16 text-emerald-500 mb-4 animate-pulse" />
+                  <p className="text-sm text-emerald-400 font-bold text-center mb-6">Account successfully blocked.</p>
+                  <button onClick={() => { setShowBlockModal(false); setBlockSuccess(false); }} className="px-6 py-2 rounded-lg font-bold text-xs uppercase tracking-widest bg-slate-800 hover:bg-slate-700 text-white transition-colors border border-slate-600">
+                    Close
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Report Scam Modal */}
+      {showReportModal && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-[#020617]/80 backdrop-blur-md rounded-2xl animate-fade-in p-4">
+          <div className="glass-panel border-2 border-orange-500/50 rounded-2xl p-8 max-w-md w-full relative">
+            <h2 className="text-lg font-black text-orange-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+              <StopCircle className="w-6 h-6" /> Report Suspicious Activity
+            </h2>
+            
+            {!reportSuccess ? (
+              <>
+                <p className="text-sm text-slate-300 mb-6">
+                  Are you sure you want to report this account to cyber security monitoring systems?
+                </p>
+                
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  if (reportDesc.trim()) setReportSuccess(true);
+                }} className="space-y-4">
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-2">Scam Type</label>
+                    <select 
+                      value={reportType}
+                      onChange={(e) => setReportType(e.target.value)}
+                      className="w-full bg-[#0b1120] border border-slate-700 rounded-lg py-3 px-4 text-sm text-slate-200 focus:border-orange-500 focus:outline-none transition-colors"
+                    >
+                      <option value="Romance Scam">Romance Scam</option>
+                      <option value="Fake Identity">Fake Identity</option>
+                      <option value="Financial Fraud">Financial Fraud</option>
+                      <option value="AI Generated Profile">AI Generated Profile</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-2">Describe suspicious activity</label>
+                    <textarea 
+                      required
+                      value={reportDesc}
+                      onChange={(e) => setReportDesc(e.target.value)}
+                      placeholder="Please provide details..."
+                      rows="3"
+                      className="w-full bg-[#0b1120] border border-slate-700 rounded-lg py-3 px-4 text-sm text-slate-200 focus:border-orange-500 focus:outline-none transition-colors resize-none"
+                    ></textarea>
+                  </div>
+
+                  <div className="flex justify-end gap-4 mt-6">
+                    <button type="button" onClick={() => setShowReportModal(false)} className="px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-widest text-slate-400 hover:bg-slate-800 transition-colors">
+                      Cancel
+                    </button>
+                    <button type="submit" disabled={!reportDesc.trim()} className="px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-widest bg-orange-600 hover:bg-orange-500 text-white transition-colors shadow-[0_0_15px_rgba(249,115,22,0.3)] disabled:opacity-50">
+                      Submit Report
+                    </button>
+                  </div>
+                </form>
+              </>
+            ) : (
+              <>
+                <div className="flex flex-col items-center justify-center py-4">
+                  <ShieldCheck className="w-16 h-16 text-emerald-500 mb-4 animate-pulse" />
+                  <p className="text-sm text-emerald-400 font-bold text-center mb-6">Report submitted successfully to cyber security monitoring.</p>
+                  <button onClick={() => { setShowReportModal(false); setReportSuccess(false); setReportDesc(''); }} className="px-6 py-2 rounded-lg font-bold text-xs uppercase tracking-widest bg-slate-800 hover:bg-slate-700 text-white transition-colors border border-slate-600">
+                    Close
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Activity, BrainCircuit, Heart, MessageCircle, AlertTriangle, ShieldAlert, Cpu } from 'lucide-react';
+import { useGlobalState } from '../context/GlobalStateContext';
 
 export default function EDIEngine({ demoMode, language }) {
-  const [ediScore, setEdiScore] = useState(12);
-  const [chatHistory, setChatHistory] = useState([]);
   const [analyzing, setAnalyzing] = useState(false);
 
   const t = {
@@ -13,25 +12,9 @@ export default function EDIEngine({ demoMode, language }) {
   };
 
   const l = t[language || 'en'];
-
-  useEffect(() => {
-    const fetchEdi = async () => {
-      try {
-        const res = await fetch('http://127.0.0.1:5000/api/edi-status');
-        if (res.ok) {
-          const data = await res.json();
-          setEdiScore(data.score);
-          setChatHistory(data.history);
-        }
-      } catch (err) {
-        console.error("Backend not running. Using fallback UI.", err);
-      }
-    };
-    
-    fetchEdi();
-    const interval = setInterval(fetchEdi, 3000);
-    return () => clearInterval(interval);
-  }, []);
+  const { sharedEdiScore, sharedChatHistory } = useGlobalState();
+  const ediScore = sharedEdiScore || 12;
+  const chatHistory = sharedChatHistory || [];
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-fade-in">

@@ -18,3 +18,13 @@
   100% { top: 100%; opacity: 0; }
 }
 .animate-scanline { animation: scanline 2s linear infinite; }
+
+@keyframes pulse-cyan {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  50% { transform: scale(1.5); opacity: 0.2; }
+  100% { transform: scale(0.95); opacity: 0.8; }
+}
+.pulse-cyan-marker {
+  animation: pulse-cyan 2s infinite;
+  transform-origin: center;
+}

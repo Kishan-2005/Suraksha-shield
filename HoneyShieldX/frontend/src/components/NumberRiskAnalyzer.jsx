@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Phone, Search, AlertTriangle, ShieldCheck, ShieldAlert, Globe, MapPin, Radio, Activity, Cpu, CheckCircle, Database } from 'lucide-react';
+import { Phone, Search, AlertTriangle, ShieldCheck, ShieldAlert, Globe, MapPin, Radio, Activity, Cpu, CheckCircle, Database, Scan } from 'lucide-react';
 
 export default function NumberRiskAnalyzer({ demoMode, language }) {
   const [phoneNumber, setPhoneNumber] = useState('');
