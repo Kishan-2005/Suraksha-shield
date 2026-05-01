@@ -9,6 +9,8 @@ export default function NudgeSystem({ demoMode, language }) {
   const [activeNudge, setActiveNudge] = useState(null);
   const chatEndRef = useRef(null);
   const fileInputRef = useRef(null);
+  const screenshotInputRef = useRef(null);
+  const [screenshotRisk, setScreenshotRisk] = useState(null);
   const { scammerProfile, setSharedChatHistory, setSharedEdiScore, setSharedScamsPrevented, setSharedActiveThreats } = useGlobalState();
 
   const [showBlockModal, setShowBlockModal] = useState(false);
@@ -46,18 +48,26 @@ export default function NudgeSystem({ demoMode, language }) {
       }
     });
 
+    let chatLevel = 'SAFE';
     if ((hasCrypto || fCount > 0) && eCount > 1 && uCount > 0) {
-      setLiveRiskLevel('CRITICAL');
+      chatLevel = 'CRITICAL';
     } else if (fCount > 0 && uCount > 0) {
-      setLiveRiskLevel('HIGH RISK');
+      chatLevel = 'HIGH RISK';
     } else if (fCount > 0 || (tCount > 0 && eCount > 0)) {
-      setLiveRiskLevel('MEDIUM RISK');
+      chatLevel = 'MEDIUM RISK';
     } else if (eCount > 0 || tCount > 0) {
-      setLiveRiskLevel('LOW RISK');
-    } else {
-      setLiveRiskLevel('SAFE');
+      chatLevel = 'LOW RISK';
     }
-  }, [messages]);
+
+    const riskWeight = { 'SAFE': 0, 'LOW RISK': 1, 'MEDIUM RISK': 2, 'HIGH RISK': 3, 'CRITICAL': 4 };
+    let finalLevel = chatLevel;
+    
+    if (screenshotRisk && riskWeight[screenshotRisk.risk_level] > riskWeight[chatLevel]) {
+      finalLevel = screenshotRisk.risk_level;
+    }
+    
+    setLiveRiskLevel(finalLevel);
+  }, [messages, screenshotRisk]);
 
   const getRiskDisplay = () => {
     switch (liveRiskLevel) {
@@ -198,6 +208,55 @@ export default function NudgeSystem({ demoMode, language }) {
     }
   };
 
+  const handleScreenshotUpload = async (e) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      try {
+        const res = await fetch('http://127.0.0.1:5000/api/chat/analyze-screenshot', {
+          method: 'POST',
+          body: formData
+        });
+        const data = await res.json();
+        
+        setScreenshotRisk({
+          risk_level: data.risk_level,
+          risk_score: data.risk_score,
+          patterns: data.patterns,
+          fraud_category: data.fraud_category
+        });
+        
+        if (data.risk_score >= 65) {
+          const nudge = {
+            type: data.risk_score >= 90 ? 'critical' : 'danger',
+            title: `Screenshot Analysis: ${data.fraud_category}`,
+            msg: `Detected patterns: ${data.patterns.join(', ')}`
+          };
+          setChatAlert({ type: nudge.type, text: nudge.title });
+          setSharedEdiScore(prev => Math.min(prev + data.risk_score / 2, 100));
+          setThreatLevel(prev => {
+            const newLevel = prev + (data.risk_score >= 80 ? 2 : 1);
+            setActiveNudge(nudge);
+            return newLevel;
+          });
+          
+          setPopupSuspiciousCount(prev => {
+            const newCount = prev + 1;
+            if (newCount >= popupThreshold) {
+              setCooldown(15);
+              setShowContinueModal(true);
+            }
+            return newCount;
+          });
+        }
+      } catch (err) {
+        console.error("Screenshot analysis failed:", err);
+      }
+    }
+  };
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-fade-in relative">
       {scammerProfile && scammerProfile.imageUrl && (
@@ -316,12 +375,20 @@ export default function NudgeSystem({ demoMode, language }) {
             <p className="text-sm font-bold text-red-400 uppercase tracking-widest">Conversation terminated for user safety.</p>
           </div>
         ) : (
-          <form onSubmit={handleSend} className="p-4 bg-slate-900/80 border-t border-slate-800 flex items-center gap-2 z-10">
-            <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
-            <button type="button" onClick={() => fileInputRef.current?.click()} disabled={cooldown > 0} className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors border border-slate-700"><ImageIcon className="w-5 h-5" /></button>
-            <input type="text" value={inputText} onChange={(e) => setInputText(e.target.value)} placeholder={l.placeholder} disabled={cooldown > 0} className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-4 py-2 text-sm text-slate-200 focus:outline-none focus:border-cyan-500 disabled:opacity-50 transition-colors" />
-            <button type="submit" disabled={cooldown > 0 || !inputText.trim()} className="p-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg transition-colors disabled:opacity-50"><Send className="w-5 h-5" /></button>
-          </form>
+          <div className="flex flex-col z-10">
+            <form onSubmit={handleSend} className="p-4 bg-slate-900/80 border-t border-slate-800 flex items-center gap-2">
+              <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
+              <button type="button" onClick={() => fileInputRef.current?.click()} disabled={cooldown > 0} className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors border border-slate-700"><ImageIcon className="w-5 h-5" /></button>
+              <input type="text" value={inputText} onChange={(e) => setInputText(e.target.value)} placeholder={l.placeholder} disabled={cooldown > 0} className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-4 py-2 text-sm text-slate-200 focus:outline-none focus:border-cyan-500 disabled:opacity-50 transition-colors" />
+              <button type="submit" disabled={cooldown > 0 || !inputText.trim()} className="p-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg transition-colors disabled:opacity-50"><Send className="w-5 h-5" /></button>
+            </form>
+            <div className="px-4 pb-3 pt-1 bg-slate-900/80 flex justify-center border-t border-slate-800/50">
+               <input type="file" ref={screenshotInputRef} onChange={handleScreenshotUpload} accept="image/png, image/jpeg, image/jpg" className="hidden" />
+               <button onClick={() => screenshotInputRef.current?.click()} disabled={cooldown > 0} className="flex items-center gap-2 text-[10px] uppercase font-bold tracking-widest text-cyan-400 hover:text-cyan-300 bg-cyan-950/30 hover:bg-cyan-900/50 border border-cyan-800/50 px-4 py-1.5 rounded-full transition-colors disabled:opacity-50">
+                  <Activity className="w-3 h-3" /> Analyze Screenshot
+               </button>
+            </div>
+          </div>
         )}
       </div>
 

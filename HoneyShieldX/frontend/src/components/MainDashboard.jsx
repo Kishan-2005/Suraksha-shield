@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Activity, ShieldCheck, AlertTriangle, Users, TrendingUp, BarChart2, Globe } from 'lucide-react';
 import GlobalThreatMap from './GlobalThreatMap';
+import { io } from 'socket.io-client';
 
 import { useGlobalState } from '../context/GlobalStateContext';
 
@@ -31,8 +32,13 @@ export default function MainDashboard({ demoMode, language }) {
           const data = await res.json();
           setSharedScamsPrevented(data.scams_prevented);
           setSharedActiveThreats(data.active_threats);
+        }
+
+        const incRes = await fetch('http://127.0.0.1:5000/api/dashboard/incidents');
+        if (incRes.ok) {
+          const incData = await incRes.json();
           setStatsData({
-            incidents: data.incidents
+            incidents: incData.incidents || []
           });
         }
 
@@ -53,7 +59,21 @@ export default function MainDashboard({ demoMode, language }) {
     
     fetchStats();
     const interval = setInterval(fetchStats, 3000);
-    return () => clearInterval(interval);
+    
+    const socket = io('http://127.0.0.1:5000');
+    socket.on('incident_update', (incident) => {
+      setStatsData(prev => {
+        // avoid duplicates if same incident comes in quick succession
+        return {
+          incidents: [incident, ...prev.incidents.filter(i => i.desc !== incident.desc || i.stage !== incident.stage)]
+        };
+      });
+    });
+
+    return () => {
+      clearInterval(interval);
+      socket.disconnect();
+    };
   }, []);
 
   const stats = [
@@ -112,16 +132,25 @@ export default function MainDashboard({ demoMode, language }) {
             <TrendingUp className="w-4 h-4" /> {l.incidents}
           </h3>
           <div className="flex-1 overflow-y-auto space-y-3 pr-2">
-            {statsData.incidents.map((inc, i) => (
-              <div key={i} className="bg-red-950/30 border border-red-500/30 p-3 rounded-xl">
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-[10px] font-bold uppercase text-red-400 bg-red-500/10 px-2 py-0.5 rounded">{l.highRisk}</span>
-                  <span className="text-[9px] font-mono text-slate-500">{inc.time}</span>
+            {statsData.incidents.map((inc, i) => {
+              const isDanger = inc.risk === 'danger';
+              const isWarning = inc.risk === 'warning';
+              
+              const bgClass = isDanger ? 'bg-red-950/30 border-red-500/30' : isWarning ? 'bg-amber-950/30 border-amber-500/30' : 'bg-[#0b1120] border-slate-800';
+              const badgeClass = isDanger ? 'text-red-400 bg-red-500/10' : isWarning ? 'text-amber-400 bg-amber-500/10' : 'text-blue-400 bg-blue-500/10';
+              const label = isDanger ? l.highRisk : isWarning ? l.warning : l.info;
+
+              return (
+                <div key={i} className={`${bgClass} border p-3 rounded-xl`}>
+                  <div className="flex justify-between items-center mb-1">
+                    <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${badgeClass}`}>{label}</span>
+                    <span className="text-[9px] font-mono text-slate-500">{inc.time}</span>
+                  </div>
+                  <p className="text-xs text-slate-300 font-bold">{inc.stage}</p>
+                  <p className="text-[10px] text-slate-400 mt-1">{inc.desc}</p>
                 </div>
-                <p className="text-xs text-slate-300 font-bold">{inc.stage}</p>
-                <p className="text-[10px] text-slate-400 mt-1">{inc.desc}</p>
-              </div>
-            ))}
+              );
+            })}
 
             <div className="bg-[#0b1120] border border-slate-800 p-3 rounded-xl">
               <div className="flex justify-between items-center mb-1">

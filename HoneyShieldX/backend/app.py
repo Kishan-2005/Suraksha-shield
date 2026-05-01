@@ -66,6 +66,13 @@ def init_db():
         password TEXT,
         role TEXT DEFAULT 'officer'
     )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS case_updates (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        case_id INTEGER,
+        status TEXT,
+        updated_by TEXT,
+        updated_timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+    )''')
     
     # Check if default officer exists, if not create
     c.execute("SELECT COUNT(*) FROM officers WHERE email = 'officer@police.gov'")
@@ -347,6 +354,69 @@ def get_reports():
     conn.close()
     return jsonify(reports)
 
+@app.route('/api/cases/update-status', methods=['POST'])
+@verifyOfficer
+def update_case_status():
+    data = request.json
+    case_id = data.get('case_id')
+    status = data.get('status')
+    token = request.headers.get('Authorization')
+    if token.startswith('Bearer '):
+        token = token.split(' ')[1]
+    decoded = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
+    updated_by = f"Officer {decoded.get('id')}"
+    
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("INSERT INTO case_updates (case_id, status, updated_by) VALUES (?, ?, ?)", (case_id, status, updated_by))
+    
+    if status == 'escalated' or status == 'escalate':
+        c.execute("UPDATE reports SET status = 'critical', risk_score = MAX(risk_score, 90) WHERE id = ?", (case_id,))
+    else:
+        c.execute("UPDATE reports SET status = ? WHERE id = ?", (status, case_id))
+    
+    conn.commit()
+    conn.close()
+    
+    message = ""
+    risk = "info"
+    if status == 'investigating':
+        message = "Investigation in Progress"
+        risk = "warning"
+    elif status == 'escalated' or status == 'escalate':
+        message = "Threat Escalated to Cyber Crime Division"
+        risk = "danger"
+    elif status == 'pending':
+        message = "Case Pending Review"
+        risk = "info"
+    elif status == 'resolved':
+        message = "Threat Successfully Resolved"
+        risk = "info"
+        
+    incident = {
+        "risk": risk,
+        "stage": f"Case #{case_id} Status",
+        "desc": message,
+        "time": "Just now"
+    }
+    
+    session_state["recent_incidents"].insert(0, incident)
+    socketio.emit("incident_update", incident)
+    
+    if status == 'escalated' or status == 'escalate':
+        socketio.emit("critical_alert", {
+            "message": "Report Escalated to Critical",
+            "report_id": case_id
+        })
+    
+    return jsonify({"success": True})
+
+@app.route('/api/dashboard/incidents', methods=['GET'])
+def dashboard_incidents():
+    return jsonify({
+        "incidents": session_state["recent_incidents"]
+    })
+
 @app.route('/api/officer/reports/<int:report_id>/status', methods=['PATCH'])
 @verifyOfficer
 def update_report_status(report_id):
@@ -619,6 +689,52 @@ def threat_map():
             "risk_level": r[5]
         })
     return jsonify(result)
+
+@app.route('/api/chat/analyze-screenshot', methods=['POST'])
+def analyze_screenshot():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file uploaded"}), 400
+        
+    file = request.files['file']
+    filename = file.filename.lower()
+    
+    risk_level = "SAFE"
+    risk_score = 10
+    scam_patterns = []
+    fraud_category = "None"
+    
+    if any(k in filename for k in ['crypto', 'bitcoin', 'eth', 'wallet']):
+        risk_level = "CRITICAL"
+        risk_score = 95
+        scam_patterns = ["Crypto Investment Fraud", "Urgency Tactics", "Unregistered Investment"]
+        fraud_category = "Cryptocurrency Scam"
+    elif any(k in filename for k in ['money', 'pay', 'bank', 'transfer', 'urgent', 'help']):
+        risk_level = "HIGH RISK"
+        risk_score = 85
+        scam_patterns = ["Financial Request", "Urgency Tactics", "Account Takeover"]
+        fraud_category = "Financial Fraud"
+    elif any(k in filename for k in ['love', 'miss', 'care', 'lonely', 'secret', 'groom']):
+        risk_level = "MEDIUM RISK"
+        risk_score = 65
+        scam_patterns = ["Emotional Manipulation", "Trust Exploitation", "Isolation Tactics"]
+        fraud_category = "Romance / Grooming"
+    elif any(k in filename for k in ['scam', 'fraud']):
+        risk_level = "HIGH RISK"
+        risk_score = 80
+        scam_patterns = ["General Scam Indicators Detected"]
+        fraud_category = "Potential Scam"
+    else:
+        risk_level = "LOW RISK"
+        risk_score = 30
+        scam_patterns = ["Suspicious language patterns"]
+        fraud_category = "Suspicious"
+        
+    return jsonify({
+        "risk_level": risk_level,
+        "risk_score": risk_score,
+        "patterns": scam_patterns,
+        "fraud_category": fraud_category
+    })
 
 @app.route('/api/chat', methods=['POST'])
 def send_chat():

@@ -89,13 +89,13 @@ export default function OfficerDashboard() {
   const updateStatus = async (id, status) => {
     try {
       const token = localStorage.getItem('officer_token');
-      await fetch(`http://127.0.0.1:5000/api/officer/reports/${id}/status`, {
-        method: 'PATCH',
+      await fetch(`http://127.0.0.1:5000/api/cases/update-status`, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ status })
+        body: JSON.stringify({ case_id: id, status })
       });
       fetchReports();
     } catch (err) {
@@ -106,9 +106,13 @@ export default function OfficerDashboard() {
   const escalateReport = async (id) => {
     try {
       const token = localStorage.getItem('officer_token');
-      await fetch(`http://127.0.0.1:5000/api/officer/reports/${id}/escalate`, {
-        method: 'PATCH',
-        headers: { 'Authorization': `Bearer ${token}` }
+      await fetch(`http://127.0.0.1:5000/api/cases/update-status`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ case_id: id, status: 'escalated' })
       });
       fetchReports();
     } catch (err) {
@@ -276,6 +280,11 @@ export default function OfficerDashboard() {
                         {report.status === 'pending' && (
                           <button onClick={() => updateStatus(report.id, 'investigating')} className="px-3 py-1.5 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/30 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors">
                             Investigate
+                          </button>
+                        )}
+                        {report.status !== 'pending' && report.status !== 'critical' && (
+                          <button onClick={() => updateStatus(report.id, 'pending')} className="px-3 py-1.5 bg-slate-600/20 hover:bg-slate-600/30 text-slate-400 border border-slate-500/30 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors">
+                            Pending
                           </button>
                         )}
                         <button onClick={() => updateStatus(report.id, 'resolved')} className="px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors">
